@@ -3,27 +3,39 @@
   "categories": [
     {
       "id": "cat-1",
-      "key": "primary-status-board",
-      "name": "STATUS · YELLOW",
+      "key": "openclaw-discord-status",
+      "name": "OPENCLAW · IDLE · RECONNECTING",
       "position": 4,
       "channels": [
         {
           "id": "chan-1",
-          "key": "uptime",
-          "name": "uptime-99.50%",
+          "key": "connection",
+          "name": "connection-reconnecting",
           "position": 0
         },
         {
           "id": "chan-2",
-          "key": "workers",
-          "name": "workers-2-online",
+          "key": "activity",
+          "name": "activity-waiting-for-work",
           "position": 1
         },
         {
           "id": "chan-3",
-          "key": "alerts",
-          "name": "alerts-1",
+          "key": "task",
+          "name": "task-none",
           "position": 2
+        },
+        {
+          "id": "chan-4",
+          "key": "heartbeat",
+          "name": "heartbeat-26m",
+          "position": 3
+        },
+        {
+          "id": "chan-5",
+          "key": "backlog",
+          "name": "backlog-1",
+          "position": 4
         }
       ]
     }

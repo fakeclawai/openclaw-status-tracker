@@ -1,278 +1,174 @@
-# OpenClaw-Friendly Discord Status Tracker — Implementation Brief
+# OpenClaw Discord Bot Status Tracker — Implementation Brief
 
 ## Goal
-Build a small service in `/root/.openclaw/workspace/openclaw-status-tracker` that updates Discord **category names and/or channel names** to act as a live status board, while staying friendly to:
-- Discord API limits
-- OpenClaw’s Discord runtime model
-- a Kali VPS deployment
+Build a small service in `/root/.openclaw/workspace/openclaw-status-tracker` that updates Discord **category names and channel names** to present the live status of an **OpenClaw bot connected to Discord**.
 
-## Key Findings
+This specialized prototype is aimed at slow-moving operational state, not chat content and not a high-frequency ticker.
 
-### 1) Best integration shape
-Use a **separate Discord bot/service** for status-board renames, not the OpenClaw agent session itself.
+## Specialized target state
 
-Why:
-- OpenClaw’s Discord channel is optimized for conversations, not high-frequency structural guild edits.
-- Guild channels in OpenClaw map to isolated sessions; renaming them externally does not break the session key because Discord channel IDs stay stable.
-- Separating the tracker from the main assistant reduces blast radius, permissions, and debugging confusion.
+The board should answer these questions quickly:
 
-Recommended pattern:
-- **Tracker service** runs as a local Node process on the VPS.
-- It reads state from local files / local HTTP / OpenClaw-produced JSON.
-- It talks directly to Discord Bot API for channel/category rename operations.
-- OpenClaw can optionally write the input state file or trigger manual refreshes, but should not be the tight rename loop.
+- Is the OpenClaw bot connected to Discord?
+- Is it idle, busy, degraded, or offline?
+- What task is it currently handling?
+- What phase is that work in?
+- When was the last heartbeat?
+- How much queue/backlog is waiting?
+- Are there blockers?
 
-### 2) Discord permissions required
-Minimum practical bot permissions:
-- **View Channels**
-- **Manage Channels** ← required for renaming categories/channels
+## Recommended board design
 
-Usually also useful:
-- **Read Message History** and **Send Messages** only if the tracker posts logs or health messages into Discord
+Prefer one compact category plus 6–8 channels:
 
-Not needed for pure renaming:
-- Administrator
-- Manage Roles
-- Message Content intent
-
-Important:
-- Bot role must sit **high enough in role hierarchy** to manage the target channels.
-- Channel/category-level permission overwrites can still block edits even if guild role looks correct.
-
-### 3) Naming constraints that matter
-From Discord docs / observed behavior:
-- Channel `name` field: **1–100 characters**.
-- Category names also use the channel name field, so treat them as **1–100 chars** too.
-- Text channel display conventions are stricter than voice/category display; safest approach is:
-  - categories: short human-readable labels
-  - text channels: lowercase, hyphen-safe, ASCII-ish where possible
-- Keep names short even if 100 chars is allowed; Discord UI truncates aggressively.
-
-Practical recommendation:
-- Hard cap generated names to **<= 60 chars**.
-- Normalize dynamic text to a safe slug for text channels.
-- Prefer emojis/prefixes only if tested in the target server and they remain readable.
-
-### 4) The real blocker: rename rate limits
-This is the main product constraint.
-
-Discord docs say:
-- per-route and global limits exist
-- bots should rely on returned rate-limit headers and `retry_after`
-- global limit is roughly **50 requests/sec**
-
-But channel renames have a widely observed **special limit of ~2 renames per 10 minutes per channel/resource path**, documented in Discord API discussions/issues but not clearly surfaced in normal headers.
-
-Implication:
-- You **cannot** build a “real-time every few seconds” status board by renaming the same few channels repeatedly.
-- A rename-driven board must be **slow-moving**, event-coalesced, and selective.
-
-Safe product assumption:
-- Budget each board line for **at most 1 rename per 5–10 minutes** unless proven otherwise in live testing.
-- Treat every rename as expensive.
-
-### 5) Category/channel count constraints
-Observed/commonly cited Discord limits:
-- **Up to 50 channels per category**
-- Server-wide channel/category limits also exist, so avoid overbuilding the board structure
-
-Implication:
-- Prefer a compact board, e.g. 1 category + 3–8 channels, not dozens.
-
-## What to build
-
-### Recommended board design
-Prefer this structure:
-- Category: `status-board` or `🟢 system-status`
+- Category: `OPENCLAW · BUSY · CONNECTED`
 - Channels:
-  - `overall-green`
-  - `gateway-online`
-  - `jobs-3-running`
-  - `last-sync-1652-utc`
-  - `alerts-0`
+  - `connection-connected`
+  - `activity-discord-ops`
+  - `task-answering-discord-request`
+  - `phase-gathering-context`
+  - `heartbeat-2m`
+  - `queue-1-active`
+  - `backlog-4`
+  - `blockers-none`
 
-Best practice:
-- Use **multiple channels with infrequent changes**, not a single channel that churns constantly.
-- Only rename a line when its semantic state changes materially.
+Use the category as the stable headline and channels as the detailed lines.
 
-### Data model
-Have the tracker compute a desired board state like:
+## Product constraints that still matter
+
+### 1) Rename rate limits remain the hard constraint
+Even though this version is specialized for OpenClaw, the operational truth is unchanged: Discord renames are expensive.
+
+Implication:
+- do not rename on every token/message/event
+- do not rename every time internal phase text changes if it churns often
+- treat task + phase as **coalesced state**, not raw event stream
+
+Safe assumption:
+- budget any individual category/channel for roughly **1 rename per 5–10 minutes** unless live testing proves otherwise
+
+### 2) Best data source shape
+Use a local state producer that emits a compact runtime document like:
 
 ```json
 {
-  "categoryName": "status-board",
-  "channels": {
-    "overall": "overall-green",
-    "gateway": "gateway-online",
-    "jobs": "jobs-3-running",
-    "sync": "last-sync-1652-utc",
-    "alerts": "alerts-0"
-  }
+  "bot": {
+    "presence": "busy",
+    "connection": "connected",
+    "activity": "discord-ops"
+  },
+  "task": {
+    "current": "answering-discord-request",
+    "phase": "gathering-context"
+  },
+  "heartbeat": {
+    "lastSeen": "2026-03-25T17:20:00Z"
+  },
+  "queue": {
+    "pending": 1,
+    "backlog": 4
+  },
+  "blockers": []
 }
 ```
 
-Then reconcile against current Discord state.
+Best sources, in order:
+1. local JSON file written by OpenClaw or a local script
+2. local HTTP endpoint bound to localhost
+3. local process output transformed into JSON
 
-### Reconciler rules
-Implement a reconciler that:
-1. Loads config + desired state
-2. Fetches current channel/category names by ID
-3. Diffs desired vs actual
-4. Applies only necessary renames
-5. Enforces cooldowns and backoff
-6. Persists rename history locally
+### 3) State classification matters more than raw detail
+If OpenClaw emits verbose or noisy status text, classify it before it reaches the renamer.
+
+Examples:
+- internal workflow details -> short task/phase labels
+- repeated transient reconnects -> `reconnecting`
+- multiple errors -> one summarized blocker label
+
+## What this prototype now models
+
+The current repo already reflects this specialization in its schema and sample data:
+
+- `runtime.bot.presence`
+- `runtime.bot.connection`
+- `runtime.bot.activity`
+- `runtime.task.current`
+- `runtime.task.phase`
+- `runtime.heartbeat.lastSeen`
+- `runtime.queue.pending`
+- `runtime.queue.backlog`
+- `runtime.blockers[]`
+
+Derived fields used in channel names:
+- `heartbeat.age`
+- `blockers.summary`
+
+## Recommended reconciler rules for production
+
+1. Load config + local runtime state
+2. Fetch current Discord category/channel names by ID
+3. Diff desired vs actual
+4. Apply only required renames/moves
+5. Enforce cooldowns
+6. Persist rename history and last applied logical state
+7. Back off on 429 / permission failures
 
 Required guardrails:
 - **Per-channel cooldown**: default `10 minutes`
+- **Category cooldown**: same or stricter than channels
 - **Global reconcile interval**: default `60–120 seconds`
-- **Debounce** bursty input: `30–60 seconds`
-- **No-op suppression**: never PATCH if name is unchanged
-- **Retry-after handling** on 429
+- **Debounce** bursty runtime changes: `30–60 seconds`
+- **No-op suppression**: never PATCH unchanged names
 - **Jitter** between multiple renames in one cycle
+- **Single-writer lock** so two workers do not fight each other
 
-## Recommended configuration
+## OpenClaw-friendly architecture
 
-Use a local config file like `config/status-tracker.json`:
+Recommended split:
+- **OpenClaw bot/runtime**: source of truth for bot state
+- **Status tracker**: tiny reconciler that turns that state into Discord-safe names
 
-```json
-{
-  "discordTokenEnv": "DISCORD_STATUS_BOT_TOKEN",
-  "guildId": "...",
-  "board": {
-    "categoryId": "...",
-    "channels": {
-      "overall": "...",
-      "gateway": "...",
-      "jobs": "...",
-      "sync": "...",
-      "alerts": "..."
-    }
-  },
-  "timing": {
-    "reconcileIntervalMs": 60000,
-    "debounceMs": 30000,
-    "perChannelCooldownMs": 600000,
-    "interRenameDelayMs": 2000
-  }
-}
-```
+Why this split works:
+- keeps Discord structural mutations out of the main assistant loop
+- reduces permission blast radius
+- makes rate limiting and cooldowns easier to reason about
+- avoids coupling chat response timing to guild-structure update timing
 
-Do **not** store the token in git. Use env or OpenClaw secret/config references.
+## Deployment notes for the Kali VPS
 
-## OpenClaw-specific considerations
+Recommended runtime:
+- Node 22 ESM JS
+- systemd service or another already-trusted process supervisor
+- stdout logs plus optional local state snapshot/log file
 
-### Friendly path with OpenClaw
-Use OpenClaw for one or more of these:
-- producing local status JSON
-- triggering manual refresh / admin commands
-- exposing health from gateway/workflows into a file the tracker reads
+Keep secrets out of git. Use environment variables or OpenClaw-managed local config.
 
-Avoid using OpenClaw as the high-frequency rename executor.
+## Remaining implementation gaps
 
-### Why this is safe with OpenClaw’s Discord model
-- OpenClaw routes guild sessions by **channel ID**, not channel name.
-- Renaming a channel should not change the underlying session key.
-- Still, avoid renaming channels that humans actively use for normal conversation if name churn would be confusing.
+This repo is still a prototype. Before live use, add:
 
-### Best operational split
-- `openclaw-status-tracker`: infrastructure/status presenter
-- OpenClaw agent: human interaction + control plane
+1. **Real Discord adapter**
+   - fetch guild channels
+   - patch channel/category names
+   - handle 429s and permission errors cleanly
 
-## Deployment on the Kali VPS
+2. **Cooldown scheduler**
+   - channel/category-specific rename budgets
+   - coalescing so noisy phase changes do not thrash
 
-### Recommended runtime
-- Node.js service managed by **systemd user/system service** or a simple process manager already trusted on the box
-- Logs to stdout + local file if needed
-- Config in workspace, secret in env
+3. **State ingestion layer**
+   - read OpenClaw status JSON from disk or localhost
+   - validate/sanitize incoming state
 
-### Suggested files to add
-- `package.json`
-- `src/main.ts` or `src/main.js`
-- `src/config/loadConfig.ts`
-- `src/adapters/discord.ts`
-- `src/reconciler/reconcileBoard.ts`
-- `src/runtime/stateStore.ts`
-- `examples/status.example.json`
-- `docs/ops.md`
+4. **Persistence**
+   - last applied state
+   - rename timestamps
+   - lockfile / single instance protection
 
-### Input sources for board state
-Safest options first:
-1. **Local JSON file** written by OpenClaw/scripts
-2. **Local HTTP endpoint** bound to localhost only
-3. Polling trusted local commands
-
-Do not execute internet-sourced code or random webhooks on this VPS.
-
-## Risks / failure modes
-
-### Product risks
-- Rename rate limits make “live” updates much slower than users expect.
-- If state changes too often, board will lag or skip transitions by design.
-- Renaming active discussion channels may annoy users.
-
-### Technical risks
-- Missing `Manage Channels` permission => repeated 403s
-- Wrong channel IDs => invalid requests / unnecessary API churn
-- Startup burst can hit invalid-request or route limits if reconcile logic is sloppy
-- Multiple workers running at once can fight each other
-
-### Operational risks
-- Token leakage if stored in repo/plaintext
-- Restart loops if bot crashes on 429/403 without backoff
-- Confusion if board names are too long or too cute to parse quickly
-
-## Practical implementation choices
-
-### Library choice
-On this VPS, safest practical choice is:
-- **Node + discord.js** if already accepted for the project
-- or minimal direct REST calls if you want the smallest surface area
-
-For a rename-only service, direct REST is viable because feature scope is tiny:
-- GET guild channels
-- PATCH channel by ID
-
-But discord.js is still reasonable if the main agent wants easier maintenance.
-
-### My recommendation
-For fastest shipping:
-- Use **Node 22 + TypeScript or modern ESM JS**
-- Use **discord.js** only for auth/cache convenience if desired
-- Keep the logic mostly REST-like and stateless
-
-## Recommended next steps
-
-1. **Lock product scope**
-   - Decide board size: 1 category + 4 or 5 channels
-   - Decide update cadence: “eventual” not instant
-
-2. **Create the Discord assets manually once**
-   - Make the category and channels in Discord
-   - Copy IDs in Developer Mode
-   - Grant bot only `View Channels` + `Manage Channels`
-
-3. **Implement a local desired-state file**
-   - Example: `runtime/status.json`
-   - Let OpenClaw or scripts update this file
-
-4. **Build the reconciler first**
-   - Name normalization
-   - diff/no-op suppression
-   - per-channel cooldown tracking
-   - 429 handling
-
-5. **Test with one disposable channel**
-   - Verify actual cooldown behavior in this server
-   - Confirm whether category renames behave similarly to channel renames
-
-6. **Only then expand to full board**
-   - Start with 2–3 lines, not 10+
-
-7. **Add ops safety**
-   - lockfile/single-instance protection
-   - structured logs
-   - dry-run mode
-   - `--once` reconcile command for testing
+5. **Ops docs**
+   - env vars
+   - service unit example
+   - failure handling and recovery steps
 
 ## Bottom line
-This is shippable, but only if treated as a **slow, reconciled status board**, not a high-frequency live ticker. The main engineering requirement is a careful rename scheduler with cooldowns, diffing, and strong no-op suppression. The cleanest OpenClaw-friendly architecture is a separate local Discord bot/service that consumes local state and performs minimal, rate-aware renames.
+This is now shaped around an **OpenClaw Discord bot status board**, not a generic service-health board. The current prototype is good for planning, modeling, and dry-run reconciliation. The next real engineering step is a live Discord adapter plus a conservative cooldown scheduler that respects Discord rename limits.

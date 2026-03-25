@@ -4,51 +4,91 @@
     "name": "OpenClaw Ops"
   },
   "board": {
-    "key": "primary-status-board",
-    "baseName": "STATUS",
-    "statusSource": "health",
+    "key": "openclaw-discord-status",
+    "baseName": "OPENCLAW",
     "sortOffset": 10,
+    "maxNameLength": 60,
     "channels": [
       {
-        "key": "uptime",
-        "label": "Uptime",
-        "metric": "uptime",
-        "template": "uptime-{value}",
+        "key": "connection",
+        "label": "Connection",
+        "stateBinding": "connection",
+        "template": "connection-{value}",
         "position": 0
       },
       {
-        "key": "workers",
-        "label": "Workers",
-        "metric": "workersOnline",
-        "template": "workers-{value}-online",
+        "key": "activity",
+        "label": "Activity",
+        "stateBinding": "activity",
+        "template": "activity-{value}",
         "position": 1
       },
       {
-        "key": "queue",
-        "label": "Queue",
-        "metric": "queuePending",
-        "template": "queue-{value}-pending",
+        "key": "task",
+        "label": "Current Task",
+        "stateBinding": "task.current",
+        "template": "task-{value}",
         "position": 2
       },
       {
-        "key": "alerts",
-        "label": "Alerts",
-        "metric": "alertsOpen",
-        "template": "alerts-{value}",
+        "key": "phase",
+        "label": "Phase",
+        "stateBinding": "task.phase",
+        "template": "phase-{value}",
         "position": 3
+      },
+      {
+        "key": "heartbeat",
+        "label": "Heartbeat Age",
+        "stateBinding": "heartbeat.age",
+        "template": "heartbeat-{value}",
+        "position": 4
+      },
+      {
+        "key": "pending",
+        "label": "Pending Queue",
+        "stateBinding": "queue.pending",
+        "template": "queue-{value}-active",
+        "position": 5
+      },
+      {
+        "key": "backlog",
+        "label": "Backlog",
+        "stateBinding": "queue.backlog",
+        "template": "backlog-{value}",
+        "position": 6
+      },
+      {
+        "key": "blockers",
+        "label": "Blockers",
+        "stateBinding": "blockers.summary",
+        "template": "blockers-{value}",
+        "position": 7
       }
     ]
   },
   "runtime": {
-    "health": {
-      "level": "green",
-      "emoji": "🟢"
+    "bot": {
+      "presence": "busy",
+      "connection": "connected",
+      "activity": "discord-ops"
     },
-    "metrics": {
-      "uptime": "99.98%",
-      "workersOnline": 3,
-      "queuePending": 2,
-      "alertsOpen": "none"
-    }
+    "task": {
+      "current": "specializing-status-tracker",
+      "phase": "editing-runtime-model"
+    },
+    "heartbeat": {
+      "lastSeen": "2026-03-25T17:20:00Z"
+    },
+    "queue": {
+      "pending": 2,
+      "backlog": 5
+    },
+    "blockers": [
+      {
+        "code": "awaiting-live-discord-adapter",
+        "summary": "Need real Discord API integration"
+      }
+    ]
   }
 }

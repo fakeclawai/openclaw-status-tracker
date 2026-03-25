@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.local/openclaw-status-tracker/config-schema.json",
-  "title": "OpenClaw Status Tracker Config",
+  "title": "OpenClaw Discord Bot Status Tracker Config",
   "type": "object",
   "additionalProperties": false,
   "required": ["guild", "board", "runtime"],
@@ -18,26 +18,37 @@
     "board": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["key", "baseName", "statusSource", "channels"],
+      "required": ["key", "baseName", "channels"],
       "properties": {
         "key": { "type": "string", "minLength": 1 },
         "baseName": { "type": "string", "minLength": 1 },
-        "statusSource": {
-          "type": "string",
-          "enum": ["health", "tasks", "custom"]
-        },
         "sortOffset": { "type": "integer", "default": 0 },
+        "maxNameLength": { "type": "integer", "minimum": 10, "maximum": 100, "default": 60 },
         "channels": {
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["key", "label", "metric", "template", "position"],
+            "required": ["key", "label", "stateBinding", "template", "position"],
             "properties": {
               "key": { "type": "string", "minLength": 1 },
               "label": { "type": "string", "minLength": 1 },
-              "metric": { "type": "string", "minLength": 1 },
+              "stateBinding": {
+                "type": "string",
+                "enum": [
+                  "presence",
+                  "connection",
+                  "activity",
+                  "task.current",
+                  "task.phase",
+                  "heartbeat.lastSeen",
+                  "heartbeat.age",
+                  "queue.pending",
+                  "queue.backlog",
+                  "blockers.summary"
+                ]
+              },
               "template": { "type": "string", "minLength": 1 },
               "position": { "type": "integer", "minimum": 0, "description": "Relative position inside the board category" }
             }
@@ -48,24 +59,65 @@
     "runtime": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["health", "metrics"],
+      "required": ["bot", "task", "heartbeat", "queue", "blockers"],
       "properties": {
-        "health": {
+        "bot": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["level", "emoji"],
+          "required": ["presence", "connection", "activity"],
           "properties": {
-            "level": {
+            "presence": {
               "type": "string",
-              "enum": ["green", "yellow", "red", "unknown"]
+              "enum": ["idle", "busy", "degraded", "offline"]
             },
-            "emoji": { "type": "string", "minLength": 1 }
+            "connection": {
+              "type": "string",
+              "enum": ["connected", "reconnecting", "disconnected", "pairing"]
+            },
+            "activity": { "type": "string", "minLength": 1 }
           }
         },
-        "metrics": {
+        "task": {
           "type": "object",
-          "additionalProperties": {
-            "type": ["string", "number", "integer"]
+          "additionalProperties": false,
+          "required": ["current", "phase"],
+          "properties": {
+            "current": { "type": "string", "minLength": 1 },
+            "phase": { "type": "string", "minLength": 1 }
+          }
+        },
+        "heartbeat": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lastSeen"],
+          "properties": {
+            "lastSeen": { "type": "string", "minLength": 1, "description": "ISO-8601 UTC timestamp of the bot's last heartbeat" }
+          }
+        },
+        "queue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pending", "backlog"],
+          "properties": {
+            "pending": { "type": "integer", "minimum": 0 },
+            "backlog": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "code": { "type": "string" },
+                  "label": { "type": "string" },
+                  "summary": { "type": "string" }
+                }
+              }
+            ]
           }
         }
       }
