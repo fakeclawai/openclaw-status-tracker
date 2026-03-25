@@ -1,0 +1,10 @@
+{
+  "items": [
+    { "id": "task-101", "status": "pending" },
+    { "id": "task-102", "status": "pending" },
+    { "id": "task-103", "status": "running" },
+    { "id": "task-104", "status": "queued" }
+  ],
+  "pending": 2,
+  "backlog": 4
+}

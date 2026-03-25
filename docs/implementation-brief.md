@@ -109,6 +109,10 @@ Still missing:
 - **Single-writer lock**
 - **Persistent audit log**
 
+Newly added in this phase:
+- **Safe local ingestion layer** for JSON snapshots and env overrides
+- **Split-source runtime merging** so OpenClaw state can come from workspace/task files, heartbeat metadata, queue/backlog files, and blocker JSON
+
 ## OpenClaw-friendly architecture
 
 Recommended split:
@@ -140,6 +144,7 @@ Keep secrets out of git. Use environment variables or OpenClaw-managed local con
 2. **State ingestion layer**
    - read OpenClaw status JSON from disk or localhost
    - validate/sanitize incoming state separately from board config
+   - current prototype now covers disk/env snapshot ingestion; localhost HTTP and watcher loops remain future work
 
 3. **Persistence and safety**
    - last applied state

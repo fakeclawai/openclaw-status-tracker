@@ -1,0 +1,26 @@
+{
+  "bot": {
+    "presence": "busy",
+    "connection": "connected",
+    "activity": "discord-ops"
+  },
+  "currentTask": {
+    "name": "specialist-phase3-openclaw-state-ingestion",
+    "stage": "writing-runtime-ingestion"
+  },
+  "heartbeatState": {
+    "updatedAt": "2026-03-25T17:47:00Z"
+  },
+  "queue": {
+    "active": 2,
+    "backlog": 5
+  },
+  "flags": {
+    "blockers": [
+      {
+        "code": "need-cooldown-persistence",
+        "summary": "rename cooldown persistence not implemented yet"
+      }
+    ]
+  }
+}

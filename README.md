@@ -15,6 +15,7 @@ Instead of a generic infra board, this version is specialized for an OpenClaw bo
 ## What it does
 
 - Loads a specialized OpenClaw status config and a snapshot of Discord guild structure
+- Resolves runtime from safe local sources: config defaults, JSON snapshot files, workspace/task metadata files, heartbeat files, queue/backlog JSON, blocker JSON, and env overrides
 - Builds the desired OpenClaw bot status board from runtime state
 - Computes a reconciliation plan with explicit create/rename/move operations
 - Runs in dry-run mode by default through either a mock adapter or a live Discord REST adapter skeleton
@@ -93,7 +94,19 @@ node src/index.js --config <path> --guild <path> [--adapter mock|discord-rest] [
 
 ## Runtime model
 
-The prototype expects OpenClaw-flavored runtime state under `runtime`:
+The tracker now resolves runtime in layers.
+
+Precedence, lowest to highest:
+
+1. `runtime` inside config as safe defaults/fallbacks
+2. `runtimeSources.snapshotFile` for a full JSON runtime document
+3. `runtimeSources.workspaceStateFile` for OpenClaw-friendly workspace/task metadata
+4. `runtimeSources.heartbeatFile` for last-seen heartbeat metadata
+5. `runtimeSources.queueFile` for pending/backlog snapshots
+6. `runtimeSources.blockersFile` for blocker state
+7. `runtimeSources.env` for final per-field overrides
+
+A full snapshot can look like this:
 
 ```json
 {
@@ -117,6 +130,42 @@ The prototype expects OpenClaw-flavored runtime state under `runtime`:
     "blockers": [
       { "code": "awaiting-live-discord-adapter" }
     ]
+  }
+}
+```
+
+A more realistic file-based OpenClaw setup can split state across local files:
+
+```json
+{
+  "runtime": {
+    "bot": {
+      "presence": "offline",
+      "connection": "disconnected",
+      "activity": "starting"
+    },
+    "task": {
+      "current": "awaiting-runtime-snapshot",
+      "phase": "boot"
+    },
+    "heartbeat": {
+      "lastSeen": "2026-03-25T17:00:00Z"
+    },
+    "queue": {
+      "pending": 0,
+      "backlog": 0
+    },
+    "blockers": []
+  },
+  "runtimeSources": {
+    "workspaceStateFile": { "path": "examples/runtime/workspace-state.sample.json" },
+    "heartbeatFile": { "path": "examples/runtime/heartbeat.sample.json" },
+    "queueFile": { "path": "examples/runtime/queue.sample.json" },
+    "blockersFile": { "path": "examples/runtime/blockers.sample.json" },
+    "env": {
+      "presence": "OPENCLAW_PRESENCE",
+      "taskCurrent": "OPENCLAW_TASK_CURRENT"
+    }
   }
 }
 ```
@@ -181,8 +230,9 @@ Why IDs first:
 - `docs/architecture.md` - specialized design notes and extension plan
 - `docs/config-schema.json` - JSON schema for the OpenClaw Discord status config
 - `docs/implementation-brief.md` - product/ops guidance for a real deployment
-- `examples/config.sample.json` - sample mock config with managed IDs
-- `examples/live-config.sample.json` - sample live/test-server config
+- `examples/config.sample.json` - sample mock config with file/env runtime ingestion
+- `examples/live-config.sample.json` - sample live/test-server config with snapshot ingestion
+- `examples/runtime/*.json` - sample runtime snapshot inputs for workspace state, heartbeat, queue, blockers, and full snapshot mode
 - `examples/mock-guild-state.json` - sample current guild state
 - `.env.example` - local env variable example
 - `src/` - runtime, reconciler, adapters, config validation
@@ -201,15 +251,44 @@ Why IDs first:
 ## What is still intentionally missing
 
 - persisted cooldown / rename history
-- OpenClaw event ingestion or local state-file watcher
+- file watcher / daemon loop for continuous ingestion (current flow is pull-on-run)
 - durable 429 retry queue and retry-after scheduler
 - single-writer lock / leader election
 - audit log persistence of attempted and successful Discord mutations
 - safer create flow that captures newly created IDs automatically
 
+## Testing the ingestion layer
+
+Mock plan using the sample local files:
+
+```bash
+npm run plan
+```
+
+See the fully resolved board and runtime metadata:
+
+```bash
+node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --output json
+```
+
+Override fields from env without editing JSON:
+
+```bash
+OPENCLAW_PRESENCE=idle \
+OPENCLAW_TASK_CURRENT=watching-heartbeats \
+OPENCLAW_QUEUE_PENDING=3 \
+node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json
+```
+
+Test the full-snapshot path used by the live sample config:
+
+```bash
+node src/index.js --config examples/live-config.sample.json --guild examples/mock-guild-state.json --output json
+```
+
 ## Next steps for real integration
 
-- Feed `runtime` from OpenClaw heartbeat/task state or a local JSON producer
+- Point `runtimeSources.*.path` to actual OpenClaw-written local files in the workspace or service data directory
 - Add rename cooldown persistence so task churn does not hammer Discord rename limits
 - Persist the last applied state and op history for auditability and restart safety
 - Add a local lockfile or service singleton policy

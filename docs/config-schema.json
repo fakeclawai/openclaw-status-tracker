@@ -4,7 +4,7 @@
   "title": "OpenClaw Discord Bot Status Tracker Config",
   "type": "object",
   "additionalProperties": false,
-  "required": ["guild", "board", "runtime"],
+  "required": ["guild", "board"],
   "properties": {
     "guild": {
       "type": "object",
@@ -77,6 +77,49 @@
       }
     },
     "runtime": {
+      "$ref": "#/$defs/runtimeShape"
+    },
+    "runtimeSources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snapshotFile": { "$ref": "#/$defs/fileSource" },
+        "workspaceStateFile": { "$ref": "#/$defs/fileSource" },
+        "heartbeatFile": { "$ref": "#/$defs/fileSource" },
+        "queueFile": { "$ref": "#/$defs/fileSource" },
+        "blockersFile": { "$ref": "#/$defs/fileSource" },
+        "env": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "presence": { "type": "string", "minLength": 1 },
+            "connection": { "type": "string", "minLength": 1 },
+            "activity": { "type": "string", "minLength": 1 },
+            "taskCurrent": { "type": "string", "minLength": 1 },
+            "taskPhase": { "type": "string", "minLength": 1 },
+            "heartbeatLastSeen": { "type": "string", "minLength": 1 },
+            "queuePending": { "type": "string", "minLength": 1 },
+            "queueBacklog": { "type": "string", "minLength": 1 },
+            "blockersJson": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  },
+  "anyOf": [
+    { "required": ["runtime"] },
+    { "required": ["runtimeSources"] }
+  ],
+  "$defs": {
+    "fileSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "runtimeShape": {
       "type": "object",
       "additionalProperties": false,
       "required": ["bot", "task", "heartbeat", "queue", "blockers"],

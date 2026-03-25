@@ -16,11 +16,12 @@ This specialization focuses on operationally useful states instead of generic in
 
 ## Core pieces
 
-1. **Config Loader**
+1. **Config Loader + Runtime Resolver**
    - Reads JSON config
-   - Validates the OpenClaw-specific runtime shape
+   - Validates the board/config shape separately from resolved runtime
    - Loads Discord token from an environment variable
    - Normalizes safe live-mode defaults
+   - Merges runtime from local snapshot sources: config defaults, full snapshot JSON, workspace/task metadata JSON, heartbeat metadata, queue/backlog JSON, blocker JSON, and env overrides
 
 2. **Board Model Builder**
    - Converts OpenClaw runtime state into Discord-safe category/channel names
@@ -46,8 +47,10 @@ This specialization focuses on operationally useful states instead of generic in
 ## Data flow
 
 ```text
-OpenClaw runtime state + board config + guild snapshot or live Discord fetch
+OpenClaw local files/env + board config + guild snapshot or live Discord fetch
   -> config validation + env token load
+  -> runtime source ingestion + merge
+  -> resolved runtime validation
   -> derived OpenClaw board model
   -> reconciliation plan
   -> dry-run output or guarded adapter.apply(plan)
@@ -143,15 +146,13 @@ A Discord channel name is not a log sink. The model preserves only a short block
 ### OpenClaw integration inputs
 
 Potential local inputs:
-- gateway session connectivity
-- bot idle/busy/degraded presence
-- current task label from the active runtime
-- execution phase from the current workflow
-- last heartbeat timestamp
-- queue depth / backlog depth
-- summarized blockers from failed or paused work
+- workspace state JSON written by the bot or helper process
+- heartbeat metadata written into the workspace
+- queue/backlog snapshots exported by a local producer
+- blocker summaries from paused/failed task state
+- env overrides injected by the runner or supervisor
 
-These can be transformed into the `runtime` block consumed by the board model builder.
+These are merged into the normalized `runtime` block consumed by the board model builder. The current prototype intentionally stays file/env based and does not assume any undocumented privileged OpenClaw API.
 
 ### Before production
 

@@ -87,26 +87,46 @@
   },
   "runtime": {
     "bot": {
-      "presence": "busy",
-      "connection": "connected",
-      "activity": "discord-ops"
+      "presence": "offline",
+      "connection": "disconnected",
+      "activity": "starting"
     },
     "task": {
-      "current": "specializing-status-tracker",
-      "phase": "editing-runtime-model"
+      "current": "awaiting-runtime-snapshot",
+      "phase": "boot"
     },
     "heartbeat": {
-      "lastSeen": "2026-03-25T17:20:00Z"
+      "lastSeen": "2026-03-25T17:00:00Z"
     },
     "queue": {
-      "pending": 2,
-      "backlog": 5
+      "pending": 0,
+      "backlog": 0
     },
-    "blockers": [
-      {
-        "code": "awaiting-live-discord-adapter",
-        "summary": "Need real Discord API integration"
-      }
-    ]
+    "blockers": []
+  },
+  "runtimeSources": {
+    "workspaceStateFile": {
+      "path": "runtime/workspace-state.sample.json"
+    },
+    "heartbeatFile": {
+      "path": "runtime/heartbeat.sample.json"
+    },
+    "queueFile": {
+      "path": "runtime/queue.sample.json"
+    },
+    "blockersFile": {
+      "path": "runtime/blockers.sample.json"
+    },
+    "env": {
+      "presence": "OPENCLAW_PRESENCE",
+      "connection": "OPENCLAW_CONNECTION",
+      "activity": "OPENCLAW_ACTIVITY",
+      "taskCurrent": "OPENCLAW_TASK_CURRENT",
+      "taskPhase": "OPENCLAW_TASK_PHASE",
+      "heartbeatLastSeen": "OPENCLAW_HEARTBEAT_LAST_SEEN",
+      "queuePending": "OPENCLAW_QUEUE_PENDING",
+      "queueBacklog": "OPENCLAW_QUEUE_BACKLOG",
+      "blockersJson": "OPENCLAW_BLOCKERS_JSON"
+    }
   }
 }

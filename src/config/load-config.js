@@ -17,6 +17,10 @@ function isOptionalString(value) {
   return value === undefined || value === null || isNonEmptyString(value);
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 export function loadRuntimeEnv(config, env = process.env) {
   const tokenEnvVar = config.discord?.tokenEnvVar || 'DISCORD_BOT_TOKEN';
   const token = env[tokenEnvVar];
@@ -29,6 +33,88 @@ export function loadRuntimeEnv(config, env = process.env) {
       token
     }
   };
+}
+
+function validateRuntimeShape(runtime, errors, prefix = 'runtime') {
+  if (!isNonEmptyString(runtime?.bot?.presence)) {
+    errors.push(`${prefix}.bot.presence is required.`);
+  }
+
+  if (!isNonEmptyString(runtime?.bot?.connection)) {
+    errors.push(`${prefix}.bot.connection is required.`);
+  }
+
+  if (!isNonEmptyString(runtime?.bot?.activity)) {
+    errors.push(`${prefix}.bot.activity is required.`);
+  }
+
+  if (!isNonEmptyString(runtime?.task?.current)) {
+    errors.push(`${prefix}.task.current is required.`);
+  }
+
+  if (!isNonEmptyString(runtime?.task?.phase)) {
+    errors.push(`${prefix}.task.phase is required.`);
+  }
+
+  if (!isNonEmptyString(runtime?.heartbeat?.lastSeen)) {
+    errors.push(`${prefix}.heartbeat.lastSeen is required.`);
+  }
+
+  if (!isNonNegativeInteger(runtime?.queue?.pending)) {
+    errors.push(`${prefix}.queue.pending must be a non-negative integer.`);
+  }
+
+  if (!isNonNegativeInteger(runtime?.queue?.backlog)) {
+    errors.push(`${prefix}.queue.backlog must be a non-negative integer.`);
+  }
+
+  if (!Array.isArray(runtime?.blockers)) {
+    errors.push(`${prefix}.blockers must be an array.`);
+  }
+}
+
+function validateRuntimeSources(runtimeSources, errors) {
+  if (!isPlainObject(runtimeSources)) {
+    errors.push('runtimeSources must be an object when provided.');
+    return;
+  }
+
+  const fileFields = ['snapshotFile', 'workspaceStateFile', 'heartbeatFile', 'queueFile', 'blockersFile'];
+  for (const field of fileFields) {
+    const source = runtimeSources[field];
+    if (source === undefined) continue;
+    if (!isPlainObject(source)) {
+      errors.push(`runtimeSources.${field} must be an object.`);
+      continue;
+    }
+    if (!isNonEmptyString(source.path)) {
+      errors.push(`runtimeSources.${field}.path is required.`);
+    }
+  }
+
+  if (runtimeSources.env !== undefined) {
+    if (!isPlainObject(runtimeSources.env)) {
+      errors.push('runtimeSources.env must be an object when provided.');
+    } else {
+      const allowedEnvKeys = [
+        'presence',
+        'connection',
+        'activity',
+        'taskCurrent',
+        'taskPhase',
+        'heartbeatLastSeen',
+        'queuePending',
+        'queueBacklog',
+        'blockersJson'
+      ];
+
+      for (const key of allowedEnvKeys) {
+        if (runtimeSources.env[key] !== undefined && !isNonEmptyString(runtimeSources.env[key])) {
+          errors.push(`runtimeSources.env.${key} must be a non-empty string when provided.`);
+        }
+      }
+    }
+  }
 }
 
 export function validateConfig(config) {
@@ -51,40 +137,20 @@ export function validateConfig(config) {
     errors.push('board.channels must contain at least one channel declaration.');
   }
 
-  if (!isNonEmptyString(config.runtime?.bot?.presence)) {
-    errors.push('runtime.bot.presence is required.');
+  if (config.runtime !== undefined && !isPlainObject(config.runtime)) {
+    errors.push('runtime must be an object when provided.');
   }
 
-  if (!isNonEmptyString(config.runtime?.bot?.connection)) {
-    errors.push('runtime.bot.connection is required.');
+  if (config.runtimeSources !== undefined) {
+    validateRuntimeSources(config.runtimeSources, errors);
   }
 
-  if (!isNonEmptyString(config.runtime?.bot?.activity)) {
-    errors.push('runtime.bot.activity is required.');
+  if (config.runtime === undefined && config.runtimeSources === undefined) {
+    errors.push('Provide runtime or runtimeSources.');
   }
 
-  if (!isNonEmptyString(config.runtime?.task?.current)) {
-    errors.push('runtime.task.current is required.');
-  }
-
-  if (!isNonEmptyString(config.runtime?.task?.phase)) {
-    errors.push('runtime.task.phase is required.');
-  }
-
-  if (!isNonEmptyString(config.runtime?.heartbeat?.lastSeen)) {
-    errors.push('runtime.heartbeat.lastSeen is required.');
-  }
-
-  if (!isNonNegativeInteger(config.runtime?.queue?.pending)) {
-    errors.push('runtime.queue.pending must be a non-negative integer.');
-  }
-
-  if (!isNonNegativeInteger(config.runtime?.queue?.backlog)) {
-    errors.push('runtime.queue.backlog must be a non-negative integer.');
-  }
-
-  if (!Array.isArray(config.runtime?.blockers)) {
-    errors.push('runtime.blockers must be an array.');
+  if (config.runtime !== undefined && config.runtimeSources === undefined) {
+    validateRuntimeShape(config.runtime, errors);
   }
 
   if (config.discord !== undefined && typeof config.discord !== 'object') {
@@ -154,6 +220,12 @@ export function validateConfig(config) {
   return { valid: errors.length === 0, errors };
 }
 
+export function validateResolvedRuntime(runtime) {
+  const errors = [];
+  validateRuntimeShape(runtime, errors, 'resolvedRuntime');
+  return { valid: errors.length === 0, errors };
+}
+
 export function normalizeConfig(config) {
   return {
     ...config,
@@ -176,13 +248,46 @@ export function normalizeConfig(config) {
       channels: [...config.board.channels].sort((a, b) => a.position - b.position)
     },
     runtime: {
+      bot: {
+        presence: 'offline',
+        connection: 'disconnected',
+        activity: 'unknown'
+      },
+      task: {
+        current: 'unknown',
+        phase: 'unknown'
+      },
+      heartbeat: {
+        lastSeen: '1970-01-01T00:00:00Z'
+      },
+      queue: {
+        pending: 0,
+        backlog: 0
+      },
       blockers: [],
-      ...config.runtime,
+      ...(config.runtime ?? {}),
+      bot: {
+        presence: 'offline',
+        connection: 'disconnected',
+        activity: 'unknown',
+        ...(config.runtime?.bot ?? {})
+      },
+      task: {
+        current: 'unknown',
+        phase: 'unknown',
+        ...(config.runtime?.task ?? {})
+      },
+      heartbeat: {
+        lastSeen: '1970-01-01T00:00:00Z',
+        ...(config.runtime?.heartbeat ?? {})
+      },
       queue: {
         pending: 0,
         backlog: 0,
-        ...config.runtime.queue
-      }
-    }
+        ...(config.runtime?.queue ?? {})
+      },
+      blockers: Array.isArray(config.runtime?.blockers) ? config.runtime.blockers : []
+    },
+    runtimeSources: config.runtimeSources ?? null
   };
 }

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import path from 'node:path';
 import process from 'node:process';
-import { loadJson, loadRuntimeEnv, normalizeConfig, validateConfig } from './config/load-config.js';
+import { loadJson, loadRuntimeEnv, normalizeConfig, validateConfig, validateResolvedRuntime } from './config/load-config.js';
 import { MockDiscordAdapter } from './adapters/mock-discord-adapter.js';
 import { DiscordRestAdapter } from './adapters/discord-rest-adapter.js';
 import { StatusTrackerService } from './runtime/service.js';
+import { resolveRuntimeState } from './runtime/ingest-runtime.js';
 import { formatPlan } from './reconciler/reconciler.js';
 
 function parseArgs(argv) {
@@ -72,7 +73,24 @@ async function main() {
     return;
   }
 
-  const config = loadRuntimeEnv(normalizeConfig(rawConfig));
+  const normalizedConfig = loadRuntimeEnv(normalizeConfig(rawConfig));
+  const { runtime, metadata: runtimeMetadata } = await resolveRuntimeState(normalizedConfig, { configPath });
+  const runtimeValidation = validateResolvedRuntime(runtime);
+  if (!runtimeValidation.valid) {
+    console.error('Resolved runtime validation failed:');
+    for (const error of runtimeValidation.errors) {
+      console.error(`- ${error}`);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  const config = {
+    ...normalizedConfig,
+    runtime,
+    runtimeMetadata
+  };
+
   const adapter = await buildAdapter({ args, config, cwd });
   const service = new StatusTrackerService({ config, adapter });
   const result = args.apply ? await service.apply() : await service.plan();
@@ -86,6 +104,9 @@ async function main() {
   console.log(`# Adapter: ${args.adapter || config.discord.mode}`);
   console.log(`# Desired category: ${result.desiredBoard.category.name}`);
   console.log(`# Dry run: ${config.discord.dryRun ? 'yes' : 'no'}`);
+  if (config.runtimeMetadata?.sourcesUsed?.length) {
+    console.log(`# Runtime sources: ${config.runtimeMetadata.sourcesUsed.map((entry) => entry.path || entry.type).join(', ')}`);
+  }
   console.log('');
   console.log(formatPlan(result.plan));
 

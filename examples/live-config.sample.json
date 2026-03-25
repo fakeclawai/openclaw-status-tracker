@@ -55,21 +55,37 @@
   },
   "runtime": {
     "bot": {
-      "presence": "busy",
-      "connection": "connected",
-      "activity": "discord-ops"
+      "presence": "offline",
+      "connection": "disconnected",
+      "activity": "starting"
     },
     "task": {
-      "current": "testing-live-adapter",
-      "phase": "planning-only"
+      "current": "awaiting-runtime-snapshot",
+      "phase": "boot"
     },
     "heartbeat": {
       "lastSeen": "2026-03-25T17:20:00Z"
     },
     "queue": {
-      "pending": 1,
-      "backlog": 1
+      "pending": 0,
+      "backlog": 0
     },
     "blockers": []
+  },
+  "runtimeSources": {
+    "snapshotFile": {
+      "path": "runtime/openclaw-runtime.snapshot.json"
+    },
+    "env": {
+      "presence": "OPENCLAW_PRESENCE",
+      "connection": "OPENCLAW_CONNECTION",
+      "activity": "OPENCLAW_ACTIVITY",
+      "taskCurrent": "OPENCLAW_TASK_CURRENT",
+      "taskPhase": "OPENCLAW_TASK_PHASE",
+      "heartbeatLastSeen": "OPENCLAW_HEARTBEAT_LAST_SEEN",
+      "queuePending": "OPENCLAW_QUEUE_PENDING",
+      "queueBacklog": "OPENCLAW_QUEUE_BACKLOG",
+      "blockersJson": "OPENCLAW_BLOCKERS_JSON"
+    }
   }
 }
