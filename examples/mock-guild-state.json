@@ -1,41 +1,62 @@
 {
-  "guildId": "123456789012345678",
+  "guild": {
+    "id": "123456789012345678",
+    "name": "OpenClaw Ops"
+  },
   "categories": [
     {
-      "id": "cat-1",
+      "id": "998877665544332211",
       "key": "openclaw-discord-status",
-      "name": "OPENCLAW · IDLE · RECONNECTING",
-      "position": 4,
+      "name": "OPENCLAW · IDLE · CONNECTED",
+      "position": 8,
       "channels": [
         {
-          "id": "chan-1",
+          "id": "998877665544332212",
           "key": "connection",
-          "name": "connection-reconnecting",
+          "name": "connection-connected",
           "position": 0
         },
         {
-          "id": "chan-2",
+          "id": "998877665544332213",
           "key": "activity",
-          "name": "activity-waiting-for-work",
+          "name": "activity-discord-idle",
           "position": 1
         },
         {
-          "id": "chan-3",
+          "id": "998877665544332214",
           "key": "task",
-          "name": "task-none",
+          "name": "task-waiting",
           "position": 2
         },
         {
-          "id": "chan-4",
-          "key": "heartbeat",
-          "name": "heartbeat-26m",
+          "id": "998877665544332215",
+          "key": "phase",
+          "name": "phase-standby",
           "position": 3
         },
         {
-          "id": "chan-5",
-          "key": "backlog",
-          "name": "backlog-1",
+          "id": "998877665544332216",
+          "key": "heartbeat",
+          "name": "heartbeat-30m",
           "position": 4
+        },
+        {
+          "id": "998877665544332217",
+          "key": "pending",
+          "name": "queue-0-active",
+          "position": 5
+        },
+        {
+          "id": "998877665544332218",
+          "key": "backlog",
+          "name": "backlog-0",
+          "position": 6
+        },
+        {
+          "id": "998877665544332219",
+          "key": "blockers",
+          "name": "blockers-none",
+          "position": 7
         }
       ]
     }

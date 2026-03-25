@@ -17,6 +17,17 @@ The board should answer these questions quickly:
 - How much queue/backlog is waiting?
 - Are there blockers?
 
+## Current implementation status
+
+This repo now covers:
+
+- mock planning and mock apply flow
+- environment-based Discord token loading
+- a minimal raw REST Discord adapter skeleton
+- category/channel fetch from a live guild
+- ID-aware diffing for category/channel rename and move planning
+- guarded live apply flow with dry-run, create suppression, request spacing, and max-op caps
+
 ## Recommended board design
 
 Prefer one compact category plus 6–8 channels:
@@ -80,47 +91,23 @@ Best sources, in order:
 ### 3) State classification matters more than raw detail
 If OpenClaw emits verbose or noisy status text, classify it before it reaches the renamer.
 
-Examples:
-- internal workflow details -> short task/phase labels
-- repeated transient reconnects -> `reconnecting`
-- multiple errors -> one summarized blocker label
+## Guardrails in the current code
 
-## What this prototype now models
+Required guardrails already partially implemented:
+- **Dry-run default**: on
+- **No-op suppression**: unchanged names do not generate PATCH operations
+- **Create suppression**: live creates skipped unless `discord.allowCreate=true`
+- **Global op cap**: `discord.maxOpsPerRun`
+- **Inter-request delay**: `discord.requestDelayMs`
+- **Test-server-first flag**: live mode refuses to run unless `discord.testServerOnly=true`
+- **429 handling placeholder**: hard fail with Retry-After visibility instead of unsafe blind retry loops
 
-The current repo already reflects this specialization in its schema and sample data:
-
-- `runtime.bot.presence`
-- `runtime.bot.connection`
-- `runtime.bot.activity`
-- `runtime.task.current`
-- `runtime.task.phase`
-- `runtime.heartbeat.lastSeen`
-- `runtime.queue.pending`
-- `runtime.queue.backlog`
-- `runtime.blockers[]`
-
-Derived fields used in channel names:
-- `heartbeat.age`
-- `blockers.summary`
-
-## Recommended reconciler rules for production
-
-1. Load config + local runtime state
-2. Fetch current Discord category/channel names by ID
-3. Diff desired vs actual
-4. Apply only required renames/moves
-5. Enforce cooldowns
-6. Persist rename history and last applied logical state
-7. Back off on 429 / permission failures
-
-Required guardrails:
-- **Per-channel cooldown**: default `10 minutes`
-- **Category cooldown**: same or stricter than channels
-- **Global reconcile interval**: default `60–120 seconds`
-- **Debounce** bursty runtime changes: `30–60 seconds`
-- **No-op suppression**: never PATCH unchanged names
-- **Jitter** between multiple renames in one cycle
-- **Single-writer lock** so two workers do not fight each other
+Still missing:
+- **Per-channel cooldown** persistence
+- **Category cooldown** persistence
+- **Debounce / coalescing** of noisy state changes
+- **Single-writer lock**
+- **Persistent audit log**
 
 ## OpenClaw-friendly architecture
 
@@ -143,32 +130,27 @@ Recommended runtime:
 
 Keep secrets out of git. Use environment variables or OpenClaw-managed local config.
 
-## Remaining implementation gaps
+## Remaining implementation gaps before production
 
-This repo is still a prototype. Before live use, add:
-
-1. **Real Discord adapter**
-   - fetch guild channels
-   - patch channel/category names
-   - handle 429s and permission errors cleanly
-
-2. **Cooldown scheduler**
+1. **Cooldown scheduler and persistence**
    - channel/category-specific rename budgets
    - coalescing so noisy phase changes do not thrash
+   - record of last attempted/applied rename timestamps
 
-3. **State ingestion layer**
+2. **State ingestion layer**
    - read OpenClaw status JSON from disk or localhost
-   - validate/sanitize incoming state
+   - validate/sanitize incoming state separately from board config
 
-4. **Persistence**
+3. **Persistence and safety**
    - last applied state
    - rename timestamps
    - lockfile / single instance protection
+   - structured audit log of live Discord mutations
 
-5. **Ops docs**
-   - env vars
-   - service unit example
-   - failure handling and recovery steps
+4. **Permission and rollout hardening**
+   - clearer handling for missing manage-channel permissions
+   - staged rollout docs for promoting from test server to production server
+   - capture of created category/channel IDs when create mode is eventually enabled
 
 ## Bottom line
-This is now shaped around an **OpenClaw Discord bot status board**, not a generic service-health board. The current prototype is good for planning, modeling, and dry-run reconciliation. The next real engineering step is a live Discord adapter plus a conservative cooldown scheduler that respects Discord rename limits.
+This repo has moved beyond mock-only mode: it can now plan against a live Discord guild and run a guarded live apply skeleton. It is still not production-ready until cooldown persistence, durable retry handling, and audit/state storage exist.

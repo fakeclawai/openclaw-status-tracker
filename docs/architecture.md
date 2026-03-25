@@ -19,35 +19,38 @@ This specialization focuses on operationally useful states instead of generic in
 1. **Config Loader**
    - Reads JSON config
    - Validates the OpenClaw-specific runtime shape
-   - Normalizes defaults used by the board builder and reconciler
+   - Loads Discord token from an environment variable
+   - Normalizes safe live-mode defaults
 
 2. **Board Model Builder**
    - Converts OpenClaw runtime state into Discord-safe category/channel names
    - Derives compact values like heartbeat age and blocker summary
-   - Keeps presentation logic separate from Discord API concerns
+   - Carries optional managed Discord IDs for deterministic live matching
 
-3. **Discord Adapter**
+3. **Discord Adapter Layer**
    - Abstract interface for reading current guild structure and applying changes
-   - Current prototype includes only a mock adapter
-   - Future adapter can wrap discord.js or raw REST calls
+   - `MockDiscordAdapter` for dry local simulation
+   - `DiscordRestAdapter` for minimal live fetch/PATCH/POST flows over raw REST
 
 4. **Reconciler**
    - Compares desired board to actual guild snapshot
    - Plans create/rename/reorder operations
-   - Supports dry-run review before live application
+   - Uses IDs when present, keys otherwise
+   - Suppresses no-op writes by emitting only changed operations
 
 5. **Service Runner**
    - CLI entrypoint for prototype usage
-   - Future daemon mode can poll a local state file or respond to OpenClaw-produced events
+   - Supports `mock` and `discord-rest`
+   - Enforces test-server-first guardrails before live mode can run
 
 ## Data flow
 
 ```text
-OpenClaw runtime state + board config + guild snapshot
-  -> config validation
+OpenClaw runtime state + board config + guild snapshot or live Discord fetch
+  -> config validation + env token load
   -> derived OpenClaw board model
   -> reconciliation plan
-  -> dry-run output or adapter.apply(plan)
+  -> dry-run output or guarded adapter.apply(plan)
 ```
 
 ## Board naming model
@@ -76,18 +79,20 @@ This split keeps the category stable enough to serve as a fast “headline” wh
 - Dry-run first
 - No credential assumptions in repo
 - Explicit operations list before apply
-- Stable matching prefers configured keys over fuzzy text matching
+- Stable matching prefers configured IDs, then configured keys
 - Name generation is sanitized and length-capped
-- Rename-only updates are preferred to avoid Discord churn
+- No-op suppression prevents unchanged PATCH calls
+- Create operations are blocked by default in live mode
+- Live mode is explicitly framed as test-server-first
 
 ## Reconciliation strategy
 
 ### Matching
 
-- Categories: match by configured `board.key`
-- Channels: match by `channel.key`
-- Prototype snapshots include these keys directly for deterministic planning
-- Real Discord integration can persist logical keys outside the visible name if needed
+- Categories: prefer `board.managedCategoryId`, fall back to `board.key`
+- Channels: prefer per-channel `id`, fall back to `channel.key`
+- Mock snapshots include keys and IDs directly for deterministic planning
+- Live mode should be treated as ID-driven whenever possible
 
 ### Planned operations
 
@@ -100,16 +105,29 @@ This split keeps the category stable enough to serve as a fast “headline” wh
 
 Deletes are intentionally omitted from the prototype. Unmanaged channels are reported, not removed.
 
+## Live adapter behavior
+
+### Fetch
+
+- Calls `GET /guilds/{guild.id}/channels`
+- Separates category and text channels
+- Builds a minimal guild snapshot for the reconciler
+
+### Apply
+
+- `PATCH /channels/{id}` for renames and reorders
+- `POST /guilds/{guild.id}/channels` for creates when explicitly enabled
+- Stops on 429 with a clear placeholder error instead of trying to be clever without persisted retry state
+- Supports a small fixed delay between requests
+- Caps each run with `discord.maxOpsPerRun`
+
 ## Specialization choices for OpenClaw on Discord
 
 ### 1. Presence and connection are distinct
 A bot can be `busy` but also `reconnecting`, or `idle` but fully `connected`. The model keeps both because they answer different operational questions.
 
 ### 2. Task and phase are separate
-For OpenClaw, “what am I doing?” and “what stage is it in?” are different signals. Example:
-
-- task: `answering-discord-request`
-- phase: `gathering-context`
+For OpenClaw, “what am I doing?” and “what stage is it in?” are different signals.
 
 ### 3. Heartbeat is represented as age
 Discord-friendly labels work better with `heartbeat-4m` than raw timestamps, but the underlying config still stores the actual `lastSeen` timestamp so a richer adapter or UI can use it later.
@@ -135,12 +153,12 @@ Potential local inputs:
 
 These can be transformed into the `runtime` block consumed by the board model builder.
 
-### Discord live mode
+### Before production
 
-For production:
-- enforce rename cooldowns
+- enforce persisted rename cooldowns
 - coalesce bursts of task/phase changes
-- retry on transient API failures
+- retry on transient API failures with stored retry state
 - detect permission issues cleanly
 - persist last applied state for auditability
-- optionally expose a preview or log message back to Discord
+- add a single-writer guard
+- optionally expose a preview/log message back to Discord

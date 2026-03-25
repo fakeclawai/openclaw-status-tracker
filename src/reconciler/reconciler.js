@@ -2,15 +2,32 @@ function sortByPosition(items) {
   return [...items].sort((a, b) => a.position - b.position);
 }
 
+function findActualCategory(actualGuild, desiredCategory) {
+  if (desiredCategory.id) {
+    return actualGuild.categories.find((category) => category.id === desiredCategory.id) ?? null;
+  }
+
+  return actualGuild.categories.find((category) => category.key === desiredCategory.key) ?? null;
+}
+
+function findActualChannel(actualCategory, desiredChannel) {
+  if (desiredChannel.id) {
+    return actualCategory.channels.find((channel) => channel.id === desiredChannel.id) ?? null;
+  }
+
+  return actualCategory.channels.find((channel) => channel.key === desiredChannel.key) ?? null;
+}
+
 export function reconcileBoard(actualGuild, desiredBoard) {
   const operations = [];
   const notes = [];
 
-  const actualCategory = actualGuild.categories.find((category) => category.key === desiredBoard.category.key);
+  const actualCategory = findActualCategory(actualGuild, desiredBoard.category);
 
   if (!actualCategory) {
     operations.push({
       type: 'createCategory',
+      id: desiredBoard.category.id,
       key: desiredBoard.category.key,
       name: desiredBoard.category.name,
       position: desiredBoard.category.position
@@ -19,6 +36,8 @@ export function reconcileBoard(actualGuild, desiredBoard) {
     for (const channel of sortByPosition(desiredBoard.category.channels)) {
       operations.push({
         type: 'createChannel',
+        id: channel.id,
+        parentId: desiredBoard.category.id,
         parentKey: desiredBoard.category.key,
         key: channel.key,
         name: channel.name,
@@ -49,14 +68,13 @@ export function reconcileBoard(actualGuild, desiredBoard) {
     });
   }
 
-  const actualChannelsByKey = new Map(actualCategory.channels.map((channel) => [channel.key, channel]));
-
   for (const desiredChannel of sortByPosition(desiredBoard.category.channels)) {
-    const actualChannel = actualChannelsByKey.get(desiredChannel.key);
+    const actualChannel = findActualChannel(actualCategory, desiredChannel);
 
     if (!actualChannel) {
       operations.push({
         type: 'createChannel',
+        id: desiredChannel.id,
         parentId: actualCategory.id,
         parentKey: actualCategory.key,
         key: desiredChannel.key,
@@ -88,9 +106,13 @@ export function reconcileBoard(actualGuild, desiredBoard) {
   }
 
   for (const actualChannel of actualCategory.channels) {
-    const stillManaged = desiredBoard.category.channels.some((channel) => channel.key === actualChannel.key);
+    const stillManaged = desiredBoard.category.channels.some((channel) => {
+      if (channel.id) return channel.id === actualChannel.id;
+      return channel.key === actualChannel.key;
+    });
+
     if (!stillManaged) {
-      notes.push(`Unmanaged channel preserved: ${actualChannel.name} (${actualChannel.key})`);
+      notes.push(`Unmanaged channel preserved: ${actualChannel.name} (${actualChannel.key || actualChannel.id})`);
     }
   }
 

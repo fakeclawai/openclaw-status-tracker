@@ -1,0 +1,75 @@
+{
+  "guild": {
+    "id": "YOUR_TEST_GUILD_ID",
+    "name": "OpenClaw Test Ops"
+  },
+  "discord": {
+    "mode": "discord-rest",
+    "tokenEnvVar": "DISCORD_BOT_TOKEN",
+    "dryRun": true,
+    "allowCreate": false,
+    "testServerOnly": true,
+    "maxOpsPerRun": 4,
+    "requestDelayMs": 1000
+  },
+  "board": {
+    "key": "openclaw-discord-status",
+    "baseName": "OPENCLAW",
+    "managedCategoryId": "YOUR_EXISTING_CATEGORY_ID",
+    "sortOffset": 10,
+    "maxNameLength": 60,
+    "channels": [
+      {
+        "id": "YOUR_CONNECTION_CHANNEL_ID",
+        "key": "connection",
+        "label": "Connection",
+        "stateBinding": "connection",
+        "template": "connection-{value}",
+        "position": 0
+      },
+      {
+        "id": "YOUR_ACTIVITY_CHANNEL_ID",
+        "key": "activity",
+        "label": "Activity",
+        "stateBinding": "activity",
+        "template": "activity-{value}",
+        "position": 1
+      },
+      {
+        "id": "YOUR_TASK_CHANNEL_ID",
+        "key": "task",
+        "label": "Current Task",
+        "stateBinding": "task.current",
+        "template": "task-{value}",
+        "position": 2
+      },
+      {
+        "id": "YOUR_PHASE_CHANNEL_ID",
+        "key": "phase",
+        "label": "Phase",
+        "stateBinding": "task.phase",
+        "template": "phase-{value}",
+        "position": 3
+      }
+    ]
+  },
+  "runtime": {
+    "bot": {
+      "presence": "busy",
+      "connection": "connected",
+      "activity": "discord-ops"
+    },
+    "task": {
+      "current": "testing-live-adapter",
+      "phase": "planning-only"
+    },
+    "heartbeat": {
+      "lastSeen": "2026-03-25T17:20:00Z"
+    },
+    "queue": {
+      "pending": 1,
+      "backlog": 1
+    },
+    "blockers": []
+  }
+}

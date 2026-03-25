@@ -7,7 +7,10 @@
   "scripts": {
     "start": "node src/index.js",
     "demo": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json",
-    "plan": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --output plan"
+    "plan": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --output plan",
+    "apply:mock": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --apply",
+    "plan:live": "node src/index.js --config examples/live-config.sample.json --adapter discord-rest --output plan",
+    "apply:live": "node src/index.js --config examples/live-config.sample.json --adapter discord-rest --apply"
   },
   "engines": {
     "node": ">=22"

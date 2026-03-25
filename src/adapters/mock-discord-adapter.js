@@ -1,9 +1,18 @@
-function ensureCategory(guildState, parentKey) {
-  const category = guildState.categories.find((entry) => entry.key === parentKey);
+function ensureCategory(guildState, parentKey, parentId) {
+  const category = guildState.categories.find((entry) => (parentId && entry.id === parentId) || entry.key === parentKey);
   if (!category) {
     throw new Error(`Cannot find category for key ${parentKey}`);
   }
   return category;
+}
+
+function ensureChannel(guildState, key, id) {
+  const category = guildState.categories.find((entry) => entry.channels.some((channel) => (id && channel.id === id) || channel.key === key));
+  const channel = category?.channels.find((entry) => (id && entry.id === id) || entry.key === key);
+  if (!channel) {
+    throw new Error(`Cannot find channel for key ${key}`);
+  }
+  return { category, channel };
 }
 
 export class MockDiscordAdapter {
@@ -22,7 +31,7 @@ export class MockDiscordAdapter {
       switch (operation.type) {
         case 'createCategory': {
           this.guildState.categories.push({
-            id: `sim-cat-${this.guildState.categories.length + 1}`,
+            id: operation.id || `sim-cat-${this.guildState.categories.length + 1}`,
             key: operation.key,
             name: operation.name,
             position: operation.position,
@@ -31,19 +40,19 @@ export class MockDiscordAdapter {
           break;
         }
         case 'renameCategory': {
-          const category = ensureCategory(this.guildState, operation.key);
+          const category = ensureCategory(this.guildState, operation.key, operation.id);
           category.name = operation.to;
           break;
         }
         case 'moveCategory': {
-          const category = ensureCategory(this.guildState, operation.key);
+          const category = ensureCategory(this.guildState, operation.key, operation.id);
           category.position = operation.to;
           break;
         }
         case 'createChannel': {
-          const category = ensureCategory(this.guildState, operation.parentKey);
+          const category = ensureCategory(this.guildState, operation.parentKey, operation.parentId);
           category.channels.push({
-            id: `sim-chan-${category.channels.length + 1}`,
+            id: operation.id || `sim-chan-${category.channels.length + 1}`,
             key: operation.key,
             name: operation.name,
             position: operation.position
@@ -51,16 +60,12 @@ export class MockDiscordAdapter {
           break;
         }
         case 'renameChannel': {
-          const category = this.guildState.categories.find((entry) => entry.channels.some((channel) => channel.key === operation.key));
-          const channel = category?.channels.find((entry) => entry.key === operation.key);
-          if (!channel) throw new Error(`Cannot find channel for key ${operation.key}`);
+          const { channel } = ensureChannel(this.guildState, operation.key, operation.id);
           channel.name = operation.to;
           break;
         }
         case 'moveChannel': {
-          const category = this.guildState.categories.find((entry) => entry.channels.some((channel) => channel.key === operation.key));
-          const channel = category?.channels.find((entry) => entry.key === operation.key);
-          if (!channel) throw new Error(`Cannot find channel for key ${operation.key}`);
+          const { channel } = ensureChannel(this.guildState, operation.key, operation.id);
           channel.position = operation.to;
           break;
         }

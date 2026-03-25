@@ -15,12 +15,29 @@ export class StatusTrackerService {
     return {
       actualGuild,
       desiredBoard,
-      plan
+      plan,
+      summary: {
+        operations: plan.operations.length,
+        notes: plan.notes.length,
+        dryRun: this.config.discord?.dryRun ?? false
+      }
     };
   }
 
   async apply() {
     const planned = await this.plan();
+    if (planned.plan.operations.length === 0) {
+      return {
+        ...planned,
+        applyResult: {
+          applied: [],
+          skipped: [],
+          dryRun: this.config.discord?.dryRun ?? false,
+          message: 'No changes required.'
+        }
+      };
+    }
+
     const result = await this.adapter.applyPlan(planned.plan);
     return {
       ...planned,

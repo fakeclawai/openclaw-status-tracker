@@ -13,6 +13,24 @@ function isNonNegativeInteger(value) {
   return Number.isInteger(value) && value >= 0;
 }
 
+function isOptionalString(value) {
+  return value === undefined || value === null || isNonEmptyString(value);
+}
+
+export function loadRuntimeEnv(config, env = process.env) {
+  const tokenEnvVar = config.discord?.tokenEnvVar || 'DISCORD_BOT_TOKEN';
+  const token = env[tokenEnvVar];
+
+  return {
+    ...config,
+    discord: {
+      ...config.discord,
+      tokenEnvVar,
+      token
+    }
+  };
+}
+
 export function validateConfig(config) {
   const errors = [];
 
@@ -69,6 +87,28 @@ export function validateConfig(config) {
     errors.push('runtime.blockers must be an array.');
   }
 
+  if (config.discord !== undefined && typeof config.discord !== 'object') {
+    errors.push('discord must be an object when provided.');
+  }
+
+  if (config.discord) {
+    if (!isOptionalString(config.discord.tokenEnvVar)) {
+      errors.push('discord.tokenEnvVar must be a non-empty string when provided.');
+    }
+
+    if (config.discord.requestDelayMs !== undefined && !isNonNegativeInteger(config.discord.requestDelayMs)) {
+      errors.push('discord.requestDelayMs must be an integer >= 0.');
+    }
+
+    if (config.discord.maxOpsPerRun !== undefined && !isNonNegativeInteger(config.discord.maxOpsPerRun)) {
+      errors.push('discord.maxOpsPerRun must be an integer >= 0.');
+    }
+
+    if (config.discord.apiBaseUrl !== undefined && !isNonEmptyString(config.discord.apiBaseUrl)) {
+      errors.push('discord.apiBaseUrl must be a non-empty string when provided.');
+    }
+  }
+
   const allowedStateBindings = new Set([
     'presence',
     'connection',
@@ -97,10 +137,18 @@ export function validateConfig(config) {
       errors.push(`Channel ${channel.key} position must be an integer >= 0.`);
     }
 
+    if (!isOptionalString(channel.id)) {
+      errors.push(`Channel ${channel.key} id must be a non-empty string when provided.`);
+    }
+
     if (channelKeys.has(channel.key)) {
       errors.push(`Duplicate board channel key: ${channel.key}`);
     }
     channelKeys.add(channel.key);
+  }
+
+  if (!isOptionalString(config.board?.managedCategoryId)) {
+    errors.push('board.managedCategoryId must be a non-empty string when provided.');
   }
 
   return { valid: errors.length === 0, errors };
@@ -109,9 +157,21 @@ export function validateConfig(config) {
 export function normalizeConfig(config) {
   return {
     ...config,
+    discord: {
+      mode: 'mock',
+      tokenEnvVar: 'DISCORD_BOT_TOKEN',
+      apiBaseUrl: 'https://discord.com/api/v10',
+      dryRun: true,
+      allowCreate: false,
+      testServerOnly: true,
+      maxOpsPerRun: 5,
+      requestDelayMs: 750,
+      ...config.discord
+    },
     board: {
       sortOffset: 0,
       maxNameLength: 60,
+      managedCategoryId: config.board?.managedCategoryId ?? null,
       ...config.board,
       channels: [...config.board.channels].sort((a, b) => a.position - b.position)
     },

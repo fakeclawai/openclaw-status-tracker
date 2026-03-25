@@ -94,6 +94,7 @@ export function buildDesiredBoard(config) {
     const stateValue = stateMap[channel.stateBinding] ?? 'unknown';
 
     return {
+      id: channel.id ?? null,
       key: channel.key,
       logicalLabel: channel.label,
       stateBinding: channel.stateBinding,
@@ -105,6 +106,7 @@ export function buildDesiredBoard(config) {
 
   return {
     category: {
+      id: config.board.managedCategoryId ?? null,
       key: config.board.key,
       name: truncateName(desiredCategoryName, config.board.maxNameLength),
       position: config.board.sortOffset,

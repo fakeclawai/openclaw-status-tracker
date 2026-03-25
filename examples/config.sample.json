@@ -3,13 +3,24 @@
     "id": "123456789012345678",
     "name": "OpenClaw Ops"
   },
+  "discord": {
+    "mode": "mock",
+    "tokenEnvVar": "DISCORD_BOT_TOKEN",
+    "dryRun": true,
+    "allowCreate": false,
+    "testServerOnly": true,
+    "maxOpsPerRun": 5,
+    "requestDelayMs": 750
+  },
   "board": {
     "key": "openclaw-discord-status",
     "baseName": "OPENCLAW",
+    "managedCategoryId": "998877665544332211",
     "sortOffset": 10,
     "maxNameLength": 60,
     "channels": [
       {
+        "id": "998877665544332212",
         "key": "connection",
         "label": "Connection",
         "stateBinding": "connection",
@@ -17,6 +28,7 @@
         "position": 0
       },
       {
+        "id": "998877665544332213",
         "key": "activity",
         "label": "Activity",
         "stateBinding": "activity",
@@ -24,6 +36,7 @@
         "position": 1
       },
       {
+        "id": "998877665544332214",
         "key": "task",
         "label": "Current Task",
         "stateBinding": "task.current",
@@ -31,6 +44,7 @@
         "position": 2
       },
       {
+        "id": "998877665544332215",
         "key": "phase",
         "label": "Phase",
         "stateBinding": "task.phase",
@@ -38,6 +52,7 @@
         "position": 3
       },
       {
+        "id": "998877665544332216",
         "key": "heartbeat",
         "label": "Heartbeat Age",
         "stateBinding": "heartbeat.age",
@@ -45,6 +60,7 @@
         "position": 4
       },
       {
+        "id": "998877665544332217",
         "key": "pending",
         "label": "Pending Queue",
         "stateBinding": "queue.pending",
@@ -52,6 +68,7 @@
         "position": 5
       },
       {
+        "id": "998877665544332218",
         "key": "backlog",
         "label": "Backlog",
         "stateBinding": "queue.backlog",
@@ -59,6 +76,7 @@
         "position": 6
       },
       {
+        "id": "998877665544332219",
         "key": "blockers",
         "label": "Blockers",
         "stateBinding": "blockers.summary",

@@ -15,6 +15,24 @@
         "name": { "type": "string", "minLength": 1 }
       }
     },
+    "discord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["mock", "discord-rest"],
+          "default": "mock"
+        },
+        "tokenEnvVar": { "type": "string", "minLength": 1, "default": "DISCORD_BOT_TOKEN" },
+        "apiBaseUrl": { "type": "string", "minLength": 1, "default": "https://discord.com/api/v10" },
+        "dryRun": { "type": "boolean", "default": true },
+        "allowCreate": { "type": "boolean", "default": false },
+        "testServerOnly": { "type": "boolean", "default": true },
+        "maxOpsPerRun": { "type": "integer", "minimum": 0, "default": 5 },
+        "requestDelayMs": { "type": "integer", "minimum": 0, "default": 750 }
+      }
+    },
     "board": {
       "type": "object",
       "additionalProperties": false,
@@ -22,6 +40,7 @@
       "properties": {
         "key": { "type": "string", "minLength": 1 },
         "baseName": { "type": "string", "minLength": 1 },
+        "managedCategoryId": { "type": ["string", "null"], "minLength": 1 },
         "sortOffset": { "type": "integer", "default": 0 },
         "maxNameLength": { "type": "integer", "minimum": 10, "maximum": 100, "default": 60 },
         "channels": {
@@ -32,6 +51,7 @@
             "additionalProperties": false,
             "required": ["key", "label", "stateBinding", "template", "position"],
             "properties": {
+              "id": { "type": ["string", "null"], "minLength": 1 },
               "key": { "type": "string", "minLength": 1 },
               "label": { "type": "string", "minLength": 1 },
               "stateBinding": {
