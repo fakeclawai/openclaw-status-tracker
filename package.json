@@ -9,7 +9,10 @@
     "demo": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json",
     "plan": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --output plan",
     "apply:mock": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --apply",
+    "watch": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --watch --cycles 3 --interval-ms 1000",
+    "watch:apply:mock": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --watch --apply --cycles 3 --interval-ms 1000",
     "plan:live": "node src/index.js --config examples/live-config.sample.json --adapter discord-rest --output plan",
+    "watch:live": "node src/index.js --config examples/live-config.sample.json --adapter discord-rest --watch --cycles 2 --interval-ms 60000",
     "apply:live": "node src/index.js --config examples/live-config.sample.json --adapter discord-rest --apply"
   },
   "engines": {

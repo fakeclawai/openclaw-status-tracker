@@ -19,6 +19,8 @@ Instead of a generic infra board, this version is specialized for an OpenClaw bo
 - Builds the desired OpenClaw bot status board from runtime state
 - Computes a reconciliation plan with explicit create/rename/move operations
 - Runs in dry-run mode by default through either a mock adapter or a live Discord REST adapter skeleton
+- Supports one-shot runs or a safe polling watch loop for continuous operation
+- Persists last-applied board state plus rename cooldown/coalescing observations in a local JSON state file
 - Uses environment-driven token loading so secrets stay out of git
 
 This repo intentionally uses placeholders for real Discord/OpenClaw credentials and does not execute internet-sourced code.
@@ -40,6 +42,18 @@ Simulate applying through the mock adapter:
 
 ```bash
 npm run apply:mock
+```
+
+Run the watch loop in dry-run mode first:
+
+```bash
+npm run watch
+```
+
+Simulate watch-loop apply cycles against the mock adapter:
+
+```bash
+npm run watch:apply:mock
 ```
 
 ## Live adapter skeleton
@@ -83,7 +97,7 @@ npm run apply:live
 ## CLI
 
 ```bash
-node src/index.js --config <path> --guild <path> [--adapter mock|discord-rest] [--apply] [--output json|plan]
+node src/index.js --config <path> --guild <path> [--adapter mock|discord-rest] [--apply] [--output json|plan] [--watch] [--interval-ms <n>] [--cycles <n>] [--state <path>]
 ```
 
 - `--config`: OpenClaw Discord status configuration JSON
@@ -91,6 +105,10 @@ node src/index.js --config <path> --guild <path> [--adapter mock|discord-rest] [
 - `--adapter`: `mock` or `discord-rest`
 - `--apply`: attempt to apply through the configured adapter
 - `--output`: human plan or JSON
+- `--watch` / `--daemon`: run a polling loop instead of a one-shot pass
+- `--interval-ms`: override `runner.intervalMs`
+- `--cycles`: stop after N watch cycles for testing; `0` means run until interrupted
+- `--state`: override the persisted state JSON path
 
 ## Runtime model
 
@@ -188,6 +206,59 @@ Each configured channel binds to one specialized state field:
 `heartbeat.age` is derived automatically from the ISO timestamp.
 `blockers.summary` collapses zero-or-more blockers into a compact channel-safe label.
 
+## Continuous runner and persistence
+
+The new `runner` block controls the safe polling loop and rename anti-flap behavior.
+
+```json
+{
+  "runner": {
+    "intervalMs": 60000,
+    "renameCooldownMs": 300000,
+    "renameSettleMs": 120000,
+    "stateFile": ".state/openclaw-status-tracker.json"
+  }
+}
+```
+
+What gets persisted:
+
+- `lastAppliedBoard`: most recent desired board snapshot after an apply cycle
+- `renameCooldowns`: per-category/per-channel rename cooldown windows
+- `desiredNameObservations`: first-seen timestamps for candidate rename targets so a new name must remain stable before it is applied
+
+Behavior:
+
+- non-rename ops can still pass through immediately
+- rename ops are held until the desired name has remained unchanged for `renameSettleMs`
+- after a rename is applied, the same resource stays blocked until `renameCooldownMs` expires
+- state survives restarts because it is stored in the JSON file from `runner.stateFile` or `--state`
+
+Dry-run-first watch flow:
+
+```bash
+node src/index.js \
+  --config examples/config.sample.json \
+  --guild examples/mock-guild-state.json \
+  --watch \
+  --interval-ms 1000 \
+  --cycles 3
+```
+
+Then simulate apply cycles locally:
+
+```bash
+node src/index.js \
+  --config examples/config.sample.json \
+  --guild examples/mock-guild-state.json \
+  --watch \
+  --apply \
+  --interval-ms 1000 \
+  --cycles 3
+```
+
+For a long-running live test, keep `discord.dryRun=true` first, then switch to `false` only after you have reviewed several safe watch cycles on a dedicated test server.
+
 ## Live config additions
 
 The live adapter works best when you bind managed Discord resources by ID.
@@ -250,12 +321,12 @@ Why IDs first:
 
 ## What is still intentionally missing
 
-- persisted cooldown / rename history
-- file watcher / daemon loop for continuous ingestion (current flow is pull-on-run)
 - durable 429 retry queue and retry-after scheduler
 - single-writer lock / leader election
-- audit log persistence of attempted and successful Discord mutations
+- persistent structured audit log of attempted and successful Discord mutations
 - safer create flow that captures newly created IDs automatically
+- watch-driven filesystem events; current continuous mode is polling-based by design
+- smarter per-binding policies so low-value channels can be more aggressively suppressed than high-value ones
 
 ## Testing the ingestion layer
 

@@ -43,6 +43,13 @@ This specialization focuses on operationally useful states instead of generic in
    - CLI entrypoint for prototype usage
    - Supports `mock` and `discord-rest`
    - Enforces test-server-first guardrails before live mode can run
+   - Can run as a one-shot planner/applier or as a safe polling watch loop
+
+6. **Persistence + Anti-Flap Policy Layer**
+   - Stores a local JSON state file
+   - Tracks the last applied desired board snapshot
+   - Tracks rename cooldown windows per category/channel
+   - Tracks first-observed desired rename targets so names must settle before mutation
 
 ## Data flow
 
@@ -85,6 +92,8 @@ This split keeps the category stable enough to serve as a fast “headline” wh
 - Stable matching prefers configured IDs, then configured keys
 - Name generation is sanitized and length-capped
 - No-op suppression prevents unchanged PATCH calls
+- Rename coalescing requires a desired name to stay stable before mutation
+- Persisted rename cooldowns survive restarts
 - Create operations are blocked by default in live mode
 - Live mode is explicitly framed as test-server-first
 
@@ -123,6 +132,7 @@ Deletes are intentionally omitted from the prototype. Unmanaged channels are rep
 - Stops on 429 with a clear placeholder error instead of trying to be clever without persisted retry state
 - Supports a small fixed delay between requests
 - Caps each run with `discord.maxOpsPerRun`
+- In watch mode, rename operations are filtered by settle-window and cooldown policy before apply
 
 ## Specialization choices for OpenClaw on Discord
 

@@ -120,6 +120,33 @@ function validateRuntimeSources(runtimeSources, errors) {
 export function validateConfig(config) {
   const errors = [];
 
+  function validateRunner(runner) {
+    if (runner === undefined) {
+      return;
+    }
+
+    if (!isPlainObject(runner)) {
+      errors.push('runner must be an object when provided.');
+      return;
+    }
+
+    if (runner.intervalMs !== undefined && !isNonNegativeInteger(runner.intervalMs)) {
+      errors.push('runner.intervalMs must be an integer >= 0.');
+    }
+
+    if (runner.renameCooldownMs !== undefined && !isNonNegativeInteger(runner.renameCooldownMs)) {
+      errors.push('runner.renameCooldownMs must be an integer >= 0.');
+    }
+
+    if (runner.renameSettleMs !== undefined && !isNonNegativeInteger(runner.renameSettleMs)) {
+      errors.push('runner.renameSettleMs must be an integer >= 0.');
+    }
+
+    if (runner.stateFile !== undefined && !isNonEmptyString(runner.stateFile)) {
+      errors.push('runner.stateFile must be a non-empty string when provided.');
+    }
+  }
+
   if (!config || typeof config !== 'object') {
     errors.push('Config must be an object.');
     return { valid: false, errors };
@@ -152,6 +179,8 @@ export function validateConfig(config) {
   if (config.runtime !== undefined && config.runtimeSources === undefined) {
     validateRuntimeShape(config.runtime, errors);
   }
+
+  validateRunner(config.runner);
 
   if (config.discord !== undefined && typeof config.discord !== 'object') {
     errors.push('discord must be an object when provided.');
@@ -288,6 +317,13 @@ export function normalizeConfig(config) {
       },
       blockers: Array.isArray(config.runtime?.blockers) ? config.runtime.blockers : []
     },
-    runtimeSources: config.runtimeSources ?? null
+    runtimeSources: config.runtimeSources ?? null,
+    runner: {
+      intervalMs: 60000,
+      renameCooldownMs: 300000,
+      renameSettleMs: 120000,
+      stateFile: '.state/openclaw-status-tracker.json',
+      ...config.runner
+    }
   };
 }

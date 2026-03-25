@@ -103,15 +103,16 @@ Required guardrails already partially implemented:
 - **429 handling placeholder**: hard fail with Retry-After visibility instead of unsafe blind retry loops
 
 Still missing:
-- **Per-channel cooldown** persistence
-- **Category cooldown** persistence
-- **Debounce / coalescing** of noisy state changes
 - **Single-writer lock**
 - **Persistent audit log**
+- **Durable 429 retry queue / scheduler**
 
 Newly added in this phase:
 - **Safe local ingestion layer** for JSON snapshots and env overrides
 - **Split-source runtime merging** so OpenClaw state can come from workspace/task files, heartbeat metadata, queue/backlog files, and blocker JSON
+- **Polling watch loop** for continuous operation instead of one-shot-only runs
+- **Persisted cooldown state** for category/channel renames across restarts
+- **Debounce / coalescing** so a desired rename must remain stable before it is applied
 
 ## OpenClaw-friendly architecture
 

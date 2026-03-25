@@ -12,6 +12,12 @@
     "maxOpsPerRun": 5,
     "requestDelayMs": 750
   },
+  "runner": {
+    "intervalMs": 60000,
+    "renameCooldownMs": 300000,
+    "renameSettleMs": 120000,
+    "stateFile": ".state/mock-status-tracker.json"
+  },
   "board": {
     "key": "openclaw-discord-status",
     "baseName": "OPENCLAW",
