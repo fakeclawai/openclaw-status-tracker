@@ -1,0 +1,54 @@
+{
+  "guild": {
+    "id": "123456789012345678",
+    "name": "OpenClaw Ops"
+  },
+  "board": {
+    "key": "primary-status-board",
+    "baseName": "STATUS",
+    "statusSource": "health",
+    "sortOffset": 10,
+    "channels": [
+      {
+        "key": "uptime",
+        "label": "Uptime",
+        "metric": "uptime",
+        "template": "uptime-{value}",
+        "position": 0
+      },
+      {
+        "key": "workers",
+        "label": "Workers",
+        "metric": "workersOnline",
+        "template": "workers-{value}-online",
+        "position": 1
+      },
+      {
+        "key": "queue",
+        "label": "Queue",
+        "metric": "queuePending",
+        "template": "queue-{value}-pending",
+        "position": 2
+      },
+      {
+        "key": "alerts",
+        "label": "Alerts",
+        "metric": "alertsOpen",
+        "template": "alerts-{value}",
+        "position": 3
+      }
+    ]
+  },
+  "runtime": {
+    "health": {
+      "level": "green",
+      "emoji": "🟢"
+    },
+    "metrics": {
+      "uptime": "99.98%",
+      "workersOnline": 3,
+      "queuePending": 2,
+      "alertsOpen": "none"
+    }
+  }
+}

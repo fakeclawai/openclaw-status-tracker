@@ -1,0 +1,31 @@
+{
+  "guildId": "123456789012345678",
+  "categories": [
+    {
+      "id": "cat-1",
+      "key": "primary-status-board",
+      "name": "STATUS · YELLOW",
+      "position": 4,
+      "channels": [
+        {
+          "id": "chan-1",
+          "key": "uptime",
+          "name": "uptime-99.50%",
+          "position": 0
+        },
+        {
+          "id": "chan-2",
+          "key": "workers",
+          "name": "workers-2-online",
+          "position": 1
+        },
+        {
+          "id": "chan-3",
+          "key": "alerts",
+          "name": "alerts-1",
+          "position": 2
+        }
+      ]
+    }
+  ]
+}

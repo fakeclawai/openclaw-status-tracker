@@ -1,0 +1,15 @@
+{
+  "name": "openclaw-status-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototype Discord status board reconciler for OpenClaw-friendly operations",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "demo": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json",
+    "plan": "node src/index.js --config examples/config.sample.json --guild examples/mock-guild-state.json --output plan"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
