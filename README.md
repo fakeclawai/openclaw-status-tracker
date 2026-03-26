@@ -25,6 +25,21 @@ Instead of a generic infra board, this version is specialized for an OpenClaw bo
 
 This repo intentionally uses placeholders for real Discord/OpenClaw credentials and does not execute internet-sourced code.
 
+## Recommended operator path
+
+If you want the smoothest path to a first successful live test, follow this exact order:
+
+1. **Start with the mock demo** so you know the board model makes sense locally.
+2. **Use a dedicated Discord category and eight dedicated text channels only.** Do not reuse existing chat channels.
+3. **Capture a read-only channel inventory** from Discord before generating config.
+4. **Generate an ID-pinned local config** from that inventory.
+5. **Run live plan in dry-run mode** and inspect every target channel/category ID.
+6. **Run a single dry-run apply cycle** to confirm the guarded live path.
+7. **Only then switch `dryRun` to `false`** for the dedicated board.
+8. **Keep the watch loop conservative**: slow polling, request spacing, low op caps.
+
+That flow removes most of the failure modes we hit during setup: wrong IDs, wrong category, fuzzy channel targeting, trying to test against active rooms, and enabling live mutations before confirming the inventory matches reality.
+
 ## Quick start
 
 ```bash
@@ -68,6 +83,29 @@ Safe defaults:
 - `discord.testServerOnly` must stay `true` for live mode to run
 - `discord.maxOpsPerRun` caps a single apply cycle
 - `discord.requestDelayMs` inserts spacing between live requests
+
+## Recommended live settings
+
+These values worked well for the dedicated-board rollout path and should be your default starting point:
+
+- `discord.dryRun: true` until the board is visually confirmed
+- `discord.allowCreate: false`
+- `discord.testServerOnly: true`
+- `discord.maxOpsPerRun: 4`
+- `discord.requestDelayMs: 1000`
+- `runner.intervalMs: 300000` (5 minutes)
+- `runner.renameCooldownMs: 600000` (10 minutes)
+- `runner.renameSettleMs: 180000` (3 minutes)
+- `board.maxNameLength: 60`
+
+Why these settings are recommended:
+
+- they slow the system down enough to stay understandable while you validate it
+- they reduce accidental bursts when config/runtime input changes quickly
+- they give rename coalescing time to settle before touching Discord again
+- they are compatible with the dedicated-board-first safety model already baked into the repo
+
+Do **not** make the tracker more aggressive until you have several clean dry-run and live cycles on a board that no humans use for conversation.
 
 ### Test-server-first flow
 
@@ -148,7 +186,75 @@ npm run plan:dedicated
 npm run apply:dedicated
 ```
 
-See `docs/dedicated-board-rollout.md` for the full checklist.
+7. Open Discord and verify the board visually before any real apply.
+8. When ready, edit `runtime/live-config.local.json` and set `discord.dryRun` to `false`.
+9. Run **one** real apply cycle first.
+10. Only after that succeeds, consider the watch loop.
+
+See `docs/dedicated-board-rollout.md` for the full checklist, `docs/operator-onboarding-checklist.md` for the fast operator path, and `docs/troubleshooting.md` for common mistakes.
+
+## Common setup pitfalls we hit
+
+### 1) Using an active channel instead of a dedicated tracker channel
+The tracker renames channels. If the channel is used by humans, you create confusion immediately.
+
+Avoid it:
+
+- use one dedicated category for the tracker only
+- use eight dedicated text channels inside it
+- pin by ID, not by name alone
+
+### 2) Inventory and config disagree
+If the Discord board changed after the inventory snapshot was taken, generated IDs can be stale or point at the wrong resources.
+
+Avoid it:
+
+- capture inventory immediately before config generation
+- regenerate config after any channel/category recreation
+- inspect `runtime/live-config.local.json` before any apply
+
+### 3) The category name is ambiguous
+If multiple categories share the same name, generator lookup by `--category-name` can fail or be unsafe.
+
+Avoid it:
+
+- use unique category names in the test server
+- or pass `--category-id` explicitly
+
+### 4) Channel names do not match the expected `openclaw-*` pattern
+Inventory-assisted config generation expects the dedicated tracker channel names by default.
+
+Avoid it:
+
+- either create the channels with the expected names
+- or pass explicit channel IDs like `--task-id`, `--phase-id`, and so on
+
+### 5) Forgetting `DISCORD_GUILD_ID` for inventory
+The inventory helper will fail if the guild ID is not passed or exported.
+
+Avoid it:
+
+```bash
+export DISCORD_GUILD_ID='YOUR_TEST_GUILD_ID'
+```
+
+### 6) Trying to go straight to watch mode
+If the initial config is wrong, watch mode just repeats the mistake.
+
+Avoid it:
+
+- plan first
+- dry-run apply once
+- real apply once
+- only then enable watch mode
+
+### 7) Switching off dry-run too early
+This is the easiest way to discover a wrong ID by mutating the wrong board.
+
+Avoid it:
+
+- leave `dryRun: true` until the dedicated board, IDs, and plan output all line up
+- do one real cycle before any long-running process
 
 ## CLI
 
@@ -363,6 +469,8 @@ Why IDs first:
 - `examples/runtime/*.json` - sample runtime snapshot inputs for workspace state, heartbeat, queue, blockers, and full snapshot mode
 - `examples/mock-guild-state.json` - sample current guild state
 - `docs/dedicated-board-rollout.md` - safe rollout guide for a dedicated tracker board
+- `docs/operator-onboarding-checklist.md` - practical install + launch checklist
+- `docs/troubleshooting.md` - common errors, causes, and fixes
 - `scripts/discord-list-guild-channels.js` - read-only guild/category/channel inventory helper
 - `scripts/create-dedicated-board-config.js` - generate an ID-pinned dedicated-board local config
 - `.env.example` - local env variable example
@@ -423,4 +531,4 @@ node src/index.js --config examples/live-config.sample.json --guild examples/moc
 - Add rename cooldown persistence so task churn does not hammer Discord rename limits
 - Persist the last applied state and op history for auditability and restart safety
 - Add a local lockfile or service singleton policy
-- Add production rollout docs after live testing on a dedicated Discord test server
+- Keep production rollout docs centered on the dedicated-board-first approach, not mixed-use Discord spaces
