@@ -104,6 +104,24 @@
           }
         }
       }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intervalMs": { "type": "integer", "minimum": 0, "default": 60000 },
+        "renameCooldownMs": { "type": "integer", "minimum": 0, "default": 300000 },
+        "renameSettleMs": { "type": "integer", "minimum": 0, "default": 120000 },
+        "stateFile": { "type": "string", "minLength": 1, "default": ".state/openclaw-status-tracker.json" },
+        "statusModel": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "staleAfterMs": { "type": "integer", "minimum": 0, "default": 900000 },
+            "offlineAfterMs": { "type": "integer", "minimum": 0, "default": 3600000 }
+          }
+        }
+      }
     }
   },
   "anyOf": [

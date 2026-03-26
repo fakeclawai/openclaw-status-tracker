@@ -368,6 +368,38 @@ Each configured channel binds to one specialized state field:
 `heartbeat.age` is derived automatically from the ISO timestamp.
 `blockers.summary` collapses zero-or-more blockers into a compact channel-safe label.
 
+### Presence derivation and stale-state handling
+
+The tracker no longer treats `runtime.bot.presence` as authoritative when it says `busy`.
+Instead it derives the rendered presence from:
+
+- connection state
+- heartbeat freshness
+- queue/task evidence of active work
+- blocker state
+
+Default behavior:
+
+- fresh heartbeat + active queue/task work => `busy`
+- no fresh work evidence => `idle`
+- stale heartbeat with stale work signals => `degraded`
+- disconnected/offline runtime => `offline`
+
+This prevents an old snapshot from pinning the board to `BUSY` after work has already stopped.
+
+You can tune the stale windows in `runner.statusModel`:
+
+```json
+{
+  "runner": {
+    "statusModel": {
+      "staleAfterMs": 900000,
+      "offlineAfterMs": 3600000
+    }
+  }
+}
+```
+
 ## Continuous runner and persistence
 
 The new `runner` block controls the safe polling loop and rename anti-flap behavior.
@@ -378,7 +410,11 @@ The new `runner` block controls the safe polling loop and rename anti-flap behav
     "intervalMs": 60000,
     "renameCooldownMs": 300000,
     "renameSettleMs": 120000,
-    "stateFile": ".state/openclaw-status-tracker.json"
+    "stateFile": ".state/openclaw-status-tracker.json",
+    "statusModel": {
+      "staleAfterMs": 900000,
+      "offlineAfterMs": 3600000
+    }
   }
 }
 ```

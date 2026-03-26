@@ -145,6 +145,20 @@ export function validateConfig(config) {
     if (runner.stateFile !== undefined && !isNonEmptyString(runner.stateFile)) {
       errors.push('runner.stateFile must be a non-empty string when provided.');
     }
+
+    if (runner.statusModel !== undefined) {
+      if (!isPlainObject(runner.statusModel)) {
+        errors.push('runner.statusModel must be an object when provided.');
+      } else {
+        if (runner.statusModel.staleAfterMs !== undefined && !isNonNegativeInteger(runner.statusModel.staleAfterMs)) {
+          errors.push('runner.statusModel.staleAfterMs must be an integer >= 0.');
+        }
+
+        if (runner.statusModel.offlineAfterMs !== undefined && !isNonNegativeInteger(runner.statusModel.offlineAfterMs)) {
+          errors.push('runner.statusModel.offlineAfterMs must be an integer >= 0.');
+        }
+      }
+    }
   }
 
   if (!config || typeof config !== 'object') {
@@ -323,7 +337,17 @@ export function normalizeConfig(config) {
       renameCooldownMs: 300000,
       renameSettleMs: 120000,
       stateFile: '.state/openclaw-status-tracker.json',
-      ...config.runner
+      statusModel: {
+        staleAfterMs: 15 * 60 * 1000,
+        offlineAfterMs: 60 * 60 * 1000,
+        ...(config.runner?.statusModel ?? {})
+      },
+      ...config.runner,
+      statusModel: {
+        staleAfterMs: 15 * 60 * 1000,
+        offlineAfterMs: 60 * 60 * 1000,
+        ...(config.runner?.statusModel ?? {})
+      }
     }
   };
 }

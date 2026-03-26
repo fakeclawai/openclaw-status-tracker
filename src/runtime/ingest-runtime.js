@@ -61,6 +61,102 @@ function parseInteger(value, fallback) {
   return Number.isNaN(parsed) ? fallback : Math.max(0, parsed);
 }
 
+function parseDurationMs(value, fallback) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, value);
+  }
+
+  const numeric = Number.parseInt(String(value), 10);
+  return Number.isNaN(numeric) ? fallback : Math.max(0, numeric);
+}
+
+function normalizeLower(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function parseTimestampMs(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Date.parse(String(value));
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function isPlaceholderTaskValue(value) {
+  const normalized = normalizeLower(value);
+  if (!normalized) {
+    return true;
+  }
+
+  const placeholders = new Set([
+    'unknown',
+    'none',
+    'idle',
+    'ready',
+    'standby',
+    'waiting',
+    'queued',
+    'boot',
+    'starting'
+  ]);
+
+  return placeholders.has(normalized)
+    || normalized.startsWith('awaiting-')
+    || normalized.startsWith('waiting-');
+}
+
+function derivePresence(runtime, statusModel = {}, now = Date.now()) {
+  const connection = normalizeLower(runtime.bot?.connection);
+  const rawPresence = normalizeLower(runtime.bot?.presence);
+  const heartbeatAt = parseTimestampMs(runtime.heartbeat?.lastSeen);
+  const heartbeatAgeMs = heartbeatAt === null ? Number.POSITIVE_INFINITY : Math.max(0, now - heartbeatAt);
+  const staleAfterMs = parseDurationMs(statusModel.staleAfterMs, 15 * 60 * 1000);
+  const offlineAfterMs = parseDurationMs(statusModel.offlineAfterMs, 60 * 60 * 1000);
+  const hasFreshHeartbeat = heartbeatAgeMs <= staleAfterMs;
+  const hasVeryStaleHeartbeat = heartbeatAgeMs > offlineAfterMs;
+  const hasPendingQueue = Number(runtime.queue?.pending ?? 0) > 0;
+  const hasActiveTask = !isPlaceholderTaskValue(runtime.task?.current) || !isPlaceholderTaskValue(runtime.task?.phase);
+  const hasBlockers = Array.isArray(runtime.blockers) && runtime.blockers.length > 0;
+  const hasFreshActiveWork = hasFreshHeartbeat && (hasPendingQueue || hasActiveTask);
+
+  if (connection === 'disconnected' || rawPresence === 'offline') {
+    return 'offline';
+  }
+
+  if (hasVeryStaleHeartbeat) {
+    return hasBlockers || connection === 'reconnecting' || connection === 'pairing' ? 'degraded' : 'idle';
+  }
+
+  if (hasFreshActiveWork) {
+    return 'busy';
+  }
+
+  if (!hasFreshHeartbeat && (rawPresence === 'busy' || hasPendingQueue || hasActiveTask)) {
+    return 'degraded';
+  }
+
+  if (rawPresence === 'degraded' || hasBlockers || connection === 'reconnecting' || connection === 'pairing') {
+    return 'degraded';
+  }
+
+  return 'idle';
+}
+
+function applyStatusModel(runtime, statusModel) {
+  return {
+    ...runtime,
+    bot: {
+      ...runtime.bot,
+      presence: derivePresence(runtime, statusModel)
+    }
+  };
+}
+
 function normalizeBlockers(value) {
   if (Array.isArray(value)) {
     return value;
@@ -219,6 +315,7 @@ export async function resolveRuntimeState(config, { configPath, env = process.en
   const baseDir = configPath ? path.dirname(configPath) : process.cwd();
   const sourcesUsed = [];
   let runtime = deepMerge({}, config.runtime ?? {});
+  const statusModel = config.runner?.statusModel ?? {};
 
   const snapshot = await readOptionalJson(config.runtimeSources?.snapshotFile, baseDir);
   if (snapshot) {
@@ -268,11 +365,16 @@ export async function resolveRuntimeState(config, { configPath, env = process.en
     lastSeen: parseTimestamp(runtime.heartbeat?.lastSeen) ?? runtime.heartbeat?.lastSeen
   };
   runtime.blockers = normalizeBlockers(runtime.blockers);
+  runtime = applyStatusModel(runtime, statusModel);
 
   return {
     runtime,
     metadata: {
-      sourcesUsed
+      sourcesUsed,
+      statusModel: {
+        staleAfterMs: parseDurationMs(statusModel.staleAfterMs, 15 * 60 * 1000),
+        offlineAfterMs: parseDurationMs(statusModel.offlineAfterMs, 60 * 60 * 1000)
+      }
     }
   };
 }

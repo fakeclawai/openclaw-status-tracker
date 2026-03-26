@@ -16,7 +16,11 @@
     "intervalMs": 300000,
     "renameCooldownMs": 600000,
     "renameSettleMs": 180000,
-    "stateFile": ".state/live-status-tracker.json"
+    "stateFile": ".state/live-status-tracker.json",
+    "statusModel": {
+      "staleAfterMs": 900000,
+      "offlineAfterMs": 3600000
+    }
   },
   "board": {
     "key": "openclaw-discord-status",
