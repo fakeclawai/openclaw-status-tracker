@@ -21,47 +21,55 @@ One dedicated category plus eight dedicated text channels:
 
 1. Create a dedicated Discord test server or test-only area.
 2. Manually create one dedicated category and the eight dedicated text channels.
-3. Export the bot token locally:
+3. Export the bot token and guild ID locally:
 
 ```bash
 export DISCORD_BOT_TOKEN='replace-me'
+export DISCORD_GUILD_ID='YOUR_TEST_GUILD_ID'
 ```
 
-4. Inventory the server structure without writing anything:
+4. Capture a read-only inventory snapshot locally:
 
 ```bash
-node scripts/discord-list-guild-channels.js --guild-id YOUR_TEST_GUILD_ID
+npm run discord:inventory
 ```
 
-5. Generate an ID-pinned local config for only the dedicated board:
+This writes both a readable tree and raw JSON under `runtime/generated/`.
+
+5. Generate an ID-pinned local config for only the dedicated board from that saved snapshot:
 
 ```bash
-node scripts/create-dedicated-board-config.js \
-  --guild-id YOUR_TEST_GUILD_ID \
+npm run config:dedicated-board:inventory -- \
+  --inventory-json runtime/generated/discord-guild-YOUR_TEST_GUILD_ID-channels.json \
+  --category-name 'OpenClaw Tracker' \
   --guild-name 'OpenClaw Dedicated Tracker Test' \
-  --category-id YOUR_CATEGORY_ID \
-  --connection-id YOUR_CONNECTION_CHANNEL_ID \
-  --activity-id YOUR_ACTIVITY_CHANNEL_ID \
-  --task-id YOUR_TASK_CHANNEL_ID \
-  --phase-id YOUR_PHASE_CHANNEL_ID \
-  --heartbeat-id YOUR_HEARTBEAT_CHANNEL_ID \
-  --pending-id YOUR_PENDING_CHANNEL_ID \
-  --backlog-id YOUR_BACKLOG_CHANNEL_ID \
-  --blockers-id YOUR_BLOCKERS_CHANNEL_ID \
   --output runtime/live-config.local.json
 ```
+
+Expected channel names inside the dedicated category:
+
+- `openclaw-connection`
+- `openclaw-activity`
+- `openclaw-task`
+- `openclaw-phase`
+- `openclaw-heartbeat`
+- `openclaw-pending`
+- `openclaw-backlog`
+- `openclaw-blockers`
+
+If the names differ, rerun the generator with explicit `--connection-id`, `--activity-id`, and other `--*-id` flags.
 
 6. Confirm the generated config does **not** reference any active chat channel IDs.
 7. Run a plan first:
 
 ```bash
-node src/index.js --config runtime/live-config.local.json --adapter discord-rest --output plan
+npm run plan:dedicated
 ```
 
 8. Keep `dryRun: true` and test one apply cycle:
 
 ```bash
-node src/index.js --config runtime/live-config.local.json --adapter discord-rest --apply
+npm run apply:dedicated
 ```
 
 9. Review the result in Discord.

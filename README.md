@@ -99,32 +99,54 @@ npm run apply:live
 If you are preparing a live local config, use a dedicated board only.
 
 1. Manually create one dedicated category plus dedicated tracker channels.
-2. Inventory IDs without writing anything:
+2. Export the bot token and guild ID:
 
 ```bash
-node scripts/discord-list-guild-channels.js --guild-id YOUR_TEST_GUILD_ID
+export DISCORD_BOT_TOKEN='replace-me'
+export DISCORD_GUILD_ID='YOUR_TEST_GUILD_ID'
 ```
 
-3. Generate an ID-pinned local config:
+3. Capture a read-only inventory snapshot locally:
 
 ```bash
-node scripts/create-dedicated-board-config.js \
-  --guild-id YOUR_TEST_GUILD_ID \
+npm run discord:inventory
+```
+
+That writes both of these files under `runtime/generated/`:
+
+- `discord-guild-YOUR_TEST_GUILD_ID-channels.txt`
+- `discord-guild-YOUR_TEST_GUILD_ID-channels.json`
+
+4. Generate a dedicated-board config from the saved inventory snapshot:
+
+```bash
+npm run config:dedicated-board:inventory -- \
+  --inventory-json runtime/generated/discord-guild-YOUR_TEST_GUILD_ID-channels.json \
+  --category-name 'OpenClaw Tracker' \
   --guild-name 'OpenClaw Dedicated Tracker Test' \
-  --category-id YOUR_CATEGORY_ID \
-  --connection-id YOUR_CONNECTION_CHANNEL_ID \
-  --activity-id YOUR_ACTIVITY_CHANNEL_ID \
-  --task-id YOUR_TASK_CHANNEL_ID \
-  --phase-id YOUR_PHASE_CHANNEL_ID \
-  --heartbeat-id YOUR_HEARTBEAT_CHANNEL_ID \
-  --pending-id YOUR_PENDING_CHANNEL_ID \
-  --backlog-id YOUR_BACKLOG_CHANNEL_ID \
-  --blockers-id YOUR_BLOCKERS_CHANNEL_ID \
   --output runtime/live-config.local.json
 ```
 
-4. Confirm the generated IDs belong only to the dedicated tracker board.
-5. Run plan/apply in dry-run first.
+Expected dedicated channel names inside that category:
+
+- `openclaw-connection`
+- `openclaw-activity`
+- `openclaw-task`
+- `openclaw-phase`
+- `openclaw-heartbeat`
+- `openclaw-pending`
+- `openclaw-backlog`
+- `openclaw-blockers`
+
+If you used different names, pass explicit `--*-id` flags instead.
+
+5. Confirm the generated IDs belong only to the dedicated tracker board.
+6. Run plan/apply in dry-run first:
+
+```bash
+npm run plan:dedicated
+npm run apply:dedicated
+```
 
 See `docs/dedicated-board-rollout.md` for the full checklist.
 

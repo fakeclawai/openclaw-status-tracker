@@ -15,7 +15,12 @@
     "watch:live": "node src/index.js --config examples/live-config.sample.json --adapter discord-rest --watch --cycles 2 --interval-ms 60000",
     "apply:live": "node src/index.js --config examples/live-config.sample.json --adapter discord-rest --apply",
     "discord:list-channels": "node scripts/discord-list-guild-channels.js",
-    "config:dedicated-board": "node scripts/create-dedicated-board-config.js"
+    "discord:inventory": "node scripts/discord-list-guild-channels.js --write-defaults",
+    "discord:inventory:json": "node scripts/discord-list-guild-channels.js --json",
+    "config:dedicated-board": "node scripts/create-dedicated-board-config.js",
+    "config:dedicated-board:inventory": "node scripts/create-dedicated-board-config.js",
+    "plan:dedicated": "node src/index.js --config runtime/live-config.local.json --adapter discord-rest --output plan",
+    "apply:dedicated": "node src/index.js --config runtime/live-config.local.json --adapter discord-rest --apply"
   },
   "engines": {
     "node": ">=22"
