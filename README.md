@@ -94,6 +94,40 @@ npm run apply:live
 
 7. After verifying against the test server, change your private config to `"dryRun": false` for real PATCH requests.
 
+### Dedicated-board-safe local rollout
+
+If you are preparing a live local config, use a dedicated board only.
+
+1. Manually create one dedicated category plus dedicated tracker channels.
+2. Inventory IDs without writing anything:
+
+```bash
+node scripts/discord-list-guild-channels.js --guild-id YOUR_TEST_GUILD_ID
+```
+
+3. Generate an ID-pinned local config:
+
+```bash
+node scripts/create-dedicated-board-config.js \
+  --guild-id YOUR_TEST_GUILD_ID \
+  --guild-name 'OpenClaw Dedicated Tracker Test' \
+  --category-id YOUR_CATEGORY_ID \
+  --connection-id YOUR_CONNECTION_CHANNEL_ID \
+  --activity-id YOUR_ACTIVITY_CHANNEL_ID \
+  --task-id YOUR_TASK_CHANNEL_ID \
+  --phase-id YOUR_PHASE_CHANNEL_ID \
+  --heartbeat-id YOUR_HEARTBEAT_CHANNEL_ID \
+  --pending-id YOUR_PENDING_CHANNEL_ID \
+  --backlog-id YOUR_BACKLOG_CHANNEL_ID \
+  --blockers-id YOUR_BLOCKERS_CHANNEL_ID \
+  --output runtime/live-config.local.json
+```
+
+4. Confirm the generated IDs belong only to the dedicated tracker board.
+5. Run plan/apply in dry-run first.
+
+See `docs/dedicated-board-rollout.md` for the full checklist.
+
 ## CLI
 
 ```bash
@@ -303,8 +337,12 @@ Why IDs first:
 - `docs/implementation-brief.md` - product/ops guidance for a real deployment
 - `examples/config.sample.json` - sample mock config with file/env runtime ingestion
 - `examples/live-config.sample.json` - sample live/test-server config with snapshot ingestion
+- `examples/live-config.dedicated-board.template.json` - dedicated-board-first live config template
 - `examples/runtime/*.json` - sample runtime snapshot inputs for workspace state, heartbeat, queue, blockers, and full snapshot mode
 - `examples/mock-guild-state.json` - sample current guild state
+- `docs/dedicated-board-rollout.md` - safe rollout guide for a dedicated tracker board
+- `scripts/discord-list-guild-channels.js` - read-only guild/category/channel inventory helper
+- `scripts/create-dedicated-board-config.js` - generate an ID-pinned dedicated-board local config
 - `.env.example` - local env variable example
 - `src/` - runtime, reconciler, adapters, config validation
 
